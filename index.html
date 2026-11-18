@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#101923">
+    <meta name="description" content="A small original adventure about Morrow, a lantern moth who keeps the last underground station lit.">
+    <title>Morrow and the Last Light</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="game.js" defer></script>
+</head>
+<body>
+    <header class="topbar">
+        <a class="wordmark" href="./" aria-label="Morrow and the Last Light home">
+            <span class="wordmark-lamp" aria-hidden="true">✦</span>
+            <span>LAST LIGHT<span class="wordmark-sub">A LITTLE NIGHT ADVENTURE</span></span>
+        </a>
+        <div class="topbar-tools">
+            <span class="chapter-label" id="chapter-label">THE MERIDIAN LINE</span>
+            <button class="sound-toggle" id="sound-toggle" type="button" aria-pressed="false">Sound: off</button>
+        </div>
+    </header>
+
+    <main>
+        <section class="title-screen" id="title-screen" aria-labelledby="title">
+            <div class="title-art" aria-hidden="true">
+                <span class="title-star star-one">✦</span>
+                <span class="title-star star-two">·</span>
+                <span class="title-star star-three">✧</span>
+                <div class="title-lantern"><span></span></div>
+                <div class="title-platform"></div>
+            </div>
+            <p class="eyebrow">A STORY ABOUT THE LIGHT WE LEAVE ON</p>
+            <h1 id="title">Morrow<br><span>and the Last Light</span></h1>
+            <p class="title-copy">The last train stopped running years ago. Morrow still keeps the station lamp lit. Tonight, somebody finally came back.</p>
+            <button class="button button-primary title-start" id="start-game" type="button">Begin the journey <span aria-hidden="true">→</span></button>
+            <p class="title-controls">A short, original story game · No downloads or extra assets required</p>
+        </section>
+
+        <section class="game-screen" id="game-screen" hidden>
+            <div class="game-meta">
+                <div class="scene-name">
+                    <span class="scene-icon" aria-hidden="true">◈</span>
+                    <span><small>NOW ARRIVING</small><strong id="scene-name">PLATFORM 08</strong></span>
+                </div>
+                <div class="player-status" aria-label="Your status">
+                    <span><small>FOCUS</small><strong id="focus">● ● ● ●</strong></span>
+                    <span><small>TRUST</small><strong id="trust">◇ ◇ ◇</strong></span>
+                    <span><small>STUBS</small><strong id="stubs">0 / 3</strong></span>
+                </div>
+            </div>
+
+            <div class="stage-frame">
+                <canvas id="scene" width="768" height="432" aria-label="A pixel-art view of the Meridian underground station">
+                    Morrow, a lantern moth, waits on a quiet underground station platform.
+                </canvas>
+                <div class="pause-curtain" id="pause-curtain" hidden>
+                    <div class="pause-card">
+                        <p class="eyebrow">THE STATION CAN WAIT</p>
+                        <h2>Take a breath.</h2>
+                        <button class="button button-primary" id="resume-game" type="button">Back to the tunnel</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="dialogue-card">
+                <div class="speaker-line">
+                    <span class="speaker-avatar" id="speaker-avatar" aria-hidden="true">M</span>
+                    <span><strong id="speaker">MORROW</strong><small id="speaker-role">LIGHTKEEPER, PLATFORM 08</small></span>
+                </div>
+                <p class="dialogue-text" id="dialogue" aria-live="polite"></p>
+                <div class="choice-list" id="choice-list" aria-label="Story choices"></div>
+                <div class="puzzle-panel" id="puzzle-panel" hidden>
+                    <p class="puzzle-progress" id="puzzle-hint">The maintenance note reads: “Wake the lamp. Give the bell a voice. Unlatch the way.”</p>
+                    <div class="puzzle-lights" id="puzzle-lights" aria-label="Signal sequence progress">
+                        <span></span><span></span><span></span>
+                    </div>
+                    <div class="puzzle-buttons">
+                        <button class="button puzzle-button" data-switch="lamp" type="button"><span>01</span> Wake the lamp</button>
+                        <button class="button puzzle-button" data-switch="bell" type="button"><span>02</span> Ring the bell</button>
+                        <button class="button puzzle-button" data-switch="gate" type="button"><span>03</span> Unlatch the gate</button>
+                    </div>
+                </div>
+                <div class="runner-hud" id="runner-hud" hidden>
+                    <span id="runner-message">Keep moving. The signal is unstable.</span>
+                    <span class="runner-time" id="runner-time">12</span>
+                    <button class="button pause-button" id="pause-button" type="button">Pause</button>
+                    <div class="touch-pad" id="touch-pad" aria-label="Movement controls">
+                        <button type="button" data-direction="up" aria-label="Move up">▲</button>
+                        <div>
+                            <button type="button" data-direction="left" aria-label="Move left">◀</button>
+                            <button type="button" data-direction="down" aria-label="Move down">▼</button>
+                            <button type="button" data-direction="right" aria-label="Move right">▶</button>
+                        </div>
+                    </div>
+                    <small>Move: arrows / WASD <i>·</i> Pause: P</small>
+                </div>
+                <div class="ending-card" id="ending-card" hidden>
+                    <p class="eyebrow">THE NIGHT HAS CHANGED</p>
+                    <h2 id="ending-title"></h2>
+                    <p id="ending-copy"></p>
+                    <button class="button button-primary" id="play-again" type="button">Take another route</button>
+                </div>
+                <div class="gameover-card" id="gameover-card" hidden>
+                    <p class="eyebrow">SIGNAL LOST</p>
+                    <h2>The dark is only a pause.</h2>
+                    <p>Morrow keeps the lamp on while you catch your breath.</p>
+                    <button class="button button-primary" id="retry-game" type="button">Try again</button>
+                </div>
+            </div>
+            <footer class="game-footer">
+                <span>EXPLORATION <i>·</i> SMALL CHOICES <i>·</i> NO WRONG WAY HOME</span>
+                <span>Built from original art and a little generated ambience.</span>
+            </footer>
+        </section>
+    </main>
+    <div class="screen-reader-only" id="live-region" aria-live="polite"></div>
+</body>
+</html>
