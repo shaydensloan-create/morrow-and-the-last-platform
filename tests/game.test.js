@@ -12,7 +12,11 @@ function createGame(storage = new Map(), random = () => 0.5) {
     const timers = [];
     const frames = new Map();
     const context = new Proxy({}, {
-        get: (_, property) => typeof property === 'string' ? () => {} : undefined,
+        get: (_, property) => typeof property === 'string'
+            ? property === 'createLinearGradient' || property === 'createRadialGradient'
+                ? () => ({ addColorStop() {} })
+                : () => {}
+            : undefined,
         set: () => true
     });
     let frameId = 0;
@@ -79,7 +83,7 @@ function createGame(storage = new Map(), random = () => 0.5) {
         'journal-inventory', 'journal-memories', 'journal-endings', 'speaker',
         'speaker-role', 'speaker-avatar', 'turn-hint', 'game-over-copy',
         'action-feedback', 'attack-title', 'attack-clock',
-        'explore-hud', 'explore-prompt', 'party-members'
+        'explore-hud', 'explore-prompt', 'interact-button', 'party-members'
     ].forEach((id) => element(id));
     elements.get('scene').width = 768;
     elements.get('scene').height = 432;
@@ -225,6 +229,14 @@ function interactPip(game) {
     game.key('keyup', 'e');
 }
 
+function interactPipWithButton(game) {
+    game.key('keydown', 'ArrowLeft');
+    game.advance(0.85);
+    game.key('keyup', 'ArrowLeft');
+    assert.equal(game.elements.get('interact-button').disabled, false);
+    game.click(game.elements.get('interact-button'));
+}
+
 function interactBoard(game) {
     game.key('keydown', 'ArrowRight');
     game.advance(0.7);
@@ -302,6 +314,14 @@ test('Pip can be met on the platform and joins the journal with a ticket', () =>
     assert.match(game.elements.get('party-members').textContent, /PIP/);
     game.click(game.elements.get('journal-button'));
     assert.match(game.elements.get('journal-inventory').children.map((item) => item.textContent).join(' '), /Pip’s return ticket/);
+});
+
+test('nearby characters can be interacted with using the on-screen action button', () => {
+    const game = createGame();
+    game.click(game.elements.get('start-game'));
+    interactPipWithButton(game);
+    assert.equal(game.elements.get('speaker').textContent, 'PIP');
+    assert.equal(game.elements.get('interact-button').disabled, true);
 });
 
 test('Vale offers a second character route through the signal room', () => {

@@ -3,9 +3,16 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="theme-color" content="#101923">
-    <meta name="description" content="A small original adventure about Morrow, a lantern moth who keeps the last underground station lit.">
+    <meta name="theme-color" content="#111a24">
+    <meta name="description" content="A cozy, original little night adventure about a lost courier, a lantern moth, and the light we leave on.">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Morrow and the Last Light">
+    <meta property="og:description" content="A cozy little night adventure. Walk the quiet platform, meet its keepers, and help the last light find its way home.">
+    <meta property="og:image" content="assets/platform-dawn.svg">
+    <meta name="twitter:card" content="summary_large_image">
     <title>Morrow and the Last Light</title>
+    <link rel="icon" href="assets/lantern.svg" type="image/svg+xml">
+    <link rel="manifest" href="manifest.webmanifest">
     <link rel="stylesheet" href="style.css">
     <script src="game.js" defer></script>
 </head>
@@ -25,23 +32,25 @@
 
     <main>
         <section class="title-screen" id="title-screen" aria-labelledby="title">
-            <div class="title-art" aria-hidden="true">
-                <span class="title-star star-one">✦</span>
-                <span class="title-star star-two">·</span>
-                <span class="title-star star-three">✧</span>
-                <div class="title-lantern"><span></span></div>
-                <div class="title-platform"></div>
+            <div class="title-art">
+                <img src="assets/platform-dawn.svg" alt="The quiet Meridian station beneath a starry sky, with one warm lamp still lit." width="1200" height="520">
+                <span class="art-caption" aria-hidden="true">PLATFORM 08 · LAST SERVICE 11:58 PM</span>
             </div>
             <p class="eyebrow">A STORY ABOUT THE LIGHT WE LEAVE ON</p>
             <h1 id="title">Morrow<br><span>and the Last Light</span></h1>
             <p class="title-copy">The last train stopped running years ago. Morrow still keeps the station lamp lit. Tonight, somebody finally came back.</p>
+            <ul class="game-notes" aria-label="About this game">
+                <li>AN ORIGINAL LITTLE ADVENTURE</li>
+                <li>COZY STORY · GENTLE EXPLORATION</li>
+                <li>MADE FOR A QUIET EVENING</li>
+            </ul>
             <div class="title-actions">
                 <button class="button button-primary title-start" id="start-game" type="button">Begin the journey <span aria-hidden="true">→</span></button>
                 <button class="button title-start" id="continue-game" type="button" hidden>Continue your story <span aria-hidden="true">→</span></button>
                 <button class="button title-start" id="new-game" type="button" hidden>Start a new story</button>
             </div>
             <p class="save-status" id="save-status" aria-live="polite"></p>
-            <p class="title-controls">A short, original story game · No downloads or extra assets required</p>
+            <p class="title-controls">A little original adventure · Hand-drawn art · Sound made for this story</p>
         </section>
 
         <section class="game-screen" id="game-screen" hidden>
@@ -74,6 +83,7 @@
 
             <div class="explore-hud" id="explore-hud" hidden>
                 <span id="explore-prompt">Walk around with arrows / WASD. Press E near someone to talk.</span>
+                <button class="button explore-interact" id="interact-button" type="button" disabled>Talk / interact</button>
                 <div class="touch-pad explore-pad" aria-label="Exploration movement controls">
                     <button type="button" data-direction="up" aria-label="Walk up">▲</button>
                     <div>

@@ -23,6 +23,7 @@
     const soundToggle = document.getElementById('sound-toggle');
     const exploreHud = document.getElementById('explore-hud');
     const explorePrompt = document.getElementById('explore-prompt');
+    const interactButton = document.getElementById('interact-button');
     const journalDialog = document.getElementById('journal-dialog');
     const saveStatus = document.getElementById('save-status');
     const saveFeedback = document.getElementById('save-feedback');
@@ -31,6 +32,7 @@
     const ticketStubs = [];
     const canvasWidth = canvas.width;
     const canvasHeight = canvas.height;
+    const prefersReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
     const runBounds = { left: 76, right: 692, top: 92, bottom: 408 };
     const courier = { x: 384, y: 380, radius: 9, speed: 218 };
     const hero = { x: 352, y: 244, facing: 'right', walking: false, speed: 148 };
@@ -172,6 +174,7 @@
         keys.clear();
         choiceList.replaceChildren();
         choiceList.hidden = false;
+        interactButton.disabled = true;
         exploreHud.hidden = true;
         puzzlePanel.hidden = true;
         runnerHud.hidden = true;
@@ -368,6 +371,9 @@
         saveFeedback.textContent = 'Story continued.';
 
         if (checkpoint === 'ending' && lastEnding) {
+            hero.x = 342;
+            hero.y = 352;
+            hero.facing = 'right';
             setScene('exit');
             displayEnding(lastEnding);
         } else if (checkpoint === 'tunnel' && bellFixed) {
@@ -696,6 +702,7 @@
         }
         mode = 'story';
         exploreHud.hidden = true;
+        interactButton.disabled = true;
         keys.clear();
         nearest.action();
     }
@@ -875,7 +882,7 @@
         lastFrame = timestamp;
         if (mode === 'runner') updateRunner(delta);
         else updateWalk(delta);
-        animationClock += delta;
+        if (!prefersReducedMotion) animationClock += delta;
         drawScene();
         if (mode === 'runner' || mode === 'walk') frameId = window.requestAnimationFrame(frame);
     }
@@ -922,9 +929,11 @@
         const near = targets
             .map((target) => ({ ...target, distance: Math.hypot(target.x - hero.x, target.y - hero.y) }))
             .sort((a, b) => a.distance - b.distance)[0];
-        explorePrompt.textContent = near && near.distance < 58
-            ? `Press E to interact with ${near.label}.`
-            : 'Walk with arrows / WASD. Press E near a person or object.';
+        const canInteract = Boolean(near && near.distance < 58);
+        interactButton.disabled = !canInteract;
+        explorePrompt.textContent = canInteract
+            ? `Talk with ${near.label}.`
+            : 'Walk around the station and meet its residents.';
     }
 
     function finishTunnel() {
@@ -932,6 +941,9 @@
         mode = 'story';
         runnerHud.hidden = true;
         keys.clear();
+        hero.x = 342;
+        hero.y = 352;
+        hero.facing = 'right';
         setScene('exit');
         const found = stubsFound >= 3
             ? 'The three recovered tickets list one passenger, one lantern, and one return journey. Morrow reads the last line without speaking.'
@@ -1023,31 +1035,77 @@
         else if (scene === 'tunnel') drawTunnel();
         else if (scene === 'exit') drawHillside();
         else drawPlatform();
-        drawMorrow();
-        if (scene === 'platform') drawPip();
-        if (scene === 'bell') drawVale();
-        if (mode === 'walk') drawHero();
-        if (mode === 'runner' || mode === 'paused' || mode === 'gameover') drawRunnerScene();
+        if (scene !== 'tunnel') drawAmbientMotes();
+        if (scene === 'tunnel') {
+            drawMorrow();
+            if (mode === 'runner' || mode === 'paused' || mode === 'gameover') drawRunnerScene();
+            return;
+        }
+
+        const actors = [
+            { y: scene === 'exit' ? 334 : 244, draw: drawMorrow }
+        ];
+        if (scene === 'platform') actors.push({ y: characters.pip.y, draw: drawPip });
+        if (scene === 'bell') actors.push({ y: characters.vale.y, draw: drawVale });
+        if (mode === 'walk' || (scene === 'exit' && mode === 'story')) {
+            actors.push({ y: hero.y, draw: drawHero });
+        }
+        actors.sort((first, second) => first.y - second.y).forEach((actor) => actor.draw());
     }
 
     function drawPlatform() {
-        ctx.fillStyle = '#12202c';
+        const wall = ctx.createLinearGradient(0, 0, 0, 305);
+        wall.addColorStop(0, '#1b2938');
+        wall.addColorStop(.72, '#283947');
+        wall.addColorStop(1, '#34434c');
+        ctx.fillStyle = wall;
         ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+        ctx.fillStyle = 'rgba(205, 215, 210, .035)';
+        for (let x = 0; x < canvasWidth; x += 64) {
+            ctx.fillRect(x, 0, 2, 266);
+        }
         drawWindows('#1c3041', 18, 30);
+        ctx.fillStyle = '#53616a';
+        ctx.fillRect(0, 256, canvasWidth, 10);
+        ctx.fillStyle = '#c2a876';
+        ctx.fillRect(0, 265, canvasWidth, 3);
         ctx.fillStyle = '#26394a';
         ctx.fillRect(0, 267, canvasWidth, 32);
-        ctx.fillStyle = '#b5965f';
-        ctx.fillRect(0, 265, canvasWidth, 3);
         ctx.fillStyle = '#384857';
         ctx.fillRect(0, 299, canvasWidth, 59);
         ctx.fillStyle = '#101923';
         ctx.fillRect(0, 358, canvasWidth, 74);
+        const floor = ctx.createLinearGradient(0, 300, 0, 432);
+        floor.addColorStop(0, '#3c4b56');
+        floor.addColorStop(1, '#1a2731');
+        ctx.fillStyle = floor;
+        ctx.fillRect(0, 300, canvasWidth, 132);
+        ctx.strokeStyle = 'rgba(202, 213, 207, .08)';
+        ctx.lineWidth = 1;
+        for (let x = 0; x < canvasWidth; x += 64) {
+            ctx.beginPath();
+            ctx.moveTo(x, 300);
+            ctx.lineTo(x + (x - canvasWidth / 2) * .28, 432);
+            ctx.stroke();
+        }
+        for (let y = 328; y < 432; y += 28) {
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.lineTo(canvasWidth, y);
+            ctx.stroke();
+        }
         ctx.fillStyle = '#283b49';
         ctx.fillRect(0, 370, canvasWidth, 4);
         for (let x = 14; x < canvasWidth; x += 42) {
             ctx.fillStyle = '#465969';
             ctx.fillRect(x, 386, 24, 3);
         }
+
+        const lanternGlow = ctx.createRadialGradient(622, 152, 8, 622, 152, 145);
+        lanternGlow.addColorStop(0, 'rgba(247, 211, 142, .25)');
+        lanternGlow.addColorStop(1, 'rgba(247, 211, 142, 0)');
+        ctx.fillStyle = lanternGlow;
+        ctx.fillRect(477, 20, 291, 276);
         ctx.fillStyle = '#e2bc70';
         ctx.fillRect(620, 123, 5, 147);
         ctx.fillStyle = '#f2d594';
@@ -1058,8 +1116,10 @@
         ctx.font = '12px monospace';
         ctx.textAlign = 'center';
         ctx.fillText('08', 622, 136);
-        ctx.fillStyle = '#182a3a';
+        ctx.fillStyle = '#b2a47e';
         ctx.fillRect(73, 48, 132, 66);
+        ctx.fillStyle = '#182a3a';
+        ctx.fillRect(76, 51, 126, 60);
         ctx.strokeStyle = '#d1bc8a';
         ctx.strokeRect(73, 48, 132, 66);
         ctx.fillStyle = '#f0d99f';
@@ -1069,49 +1129,180 @@
         ctx.fillText('LAST TRAIN', 85, 86);
         ctx.fillStyle = '#e28879';
         ctx.fillText('CANCELLED', 85, 101);
+
+        ctx.fillStyle = '#24323b';
+        ctx.fillRect(297, 219, 118, 8);
+        ctx.fillRect(302, 227, 7, 24);
+        ctx.fillRect(403, 227, 7, 24);
+        ctx.fillStyle = '#7b6c56';
+        ctx.fillRect(290, 215, 132, 7);
+        ctx.fillStyle = '#bfaa7d';
+        ctx.fillRect(298, 211, 116, 5);
+
+        ctx.fillStyle = '#c7b27e';
+        ctx.beginPath();
+        ctx.arc(379, 75, 22, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#192735';
+        ctx.beginPath();
+        ctx.arc(379, 75, 18, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#e2c47f';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(379, 75);
+        ctx.lineTo(379, 62);
+        ctx.moveTo(379, 75);
+        ctx.lineTo(390, 81);
+        ctx.stroke();
+        ctx.fillStyle = '#efd79e';
+        ctx.fillRect(377, 73, 4, 4);
+
+        ctx.fillStyle = '#567365';
+        ctx.fillRect(691, 219, 8, 38);
+        ctx.fillRect(682, 223, 25, 16);
+        ctx.fillStyle = '#78917b';
+        ctx.fillRect(680, 216, 29, 8);
     }
 
     function drawWindows(color, top, height) {
         for (let x = 20; x < canvasWidth; x += 76) {
-            ctx.fillStyle = color;
+            const night = ctx.createLinearGradient(x, top, x, top + height);
+            night.addColorStop(0, '#182a3b');
+            night.addColorStop(1, color);
+            ctx.fillStyle = night;
             ctx.fillRect(x, top, 48, height);
             ctx.fillStyle = '#314253';
             ctx.fillRect(x + 21, top, 3, height);
             ctx.fillRect(x, top + Math.floor(height / 2), 48, 3);
+            ctx.fillStyle = '#243746';
+            const buildings = [8, 17, 26, 34].map((offset, index) => ({
+                x: x + offset,
+                y: top + 19 + ((x + index * 13) % 8)
+            }));
+            buildings.forEach((building, index) => {
+                ctx.fillRect(building.x, building.y, 5, top + height - building.y - 3);
+                if ((x / 76 + index) % 2 === 0) {
+                    ctx.fillStyle = '#e7c982';
+                    ctx.fillRect(building.x + 1, building.y + 5, 2, 2);
+                    ctx.fillStyle = '#243746';
+                }
+            });
             ctx.fillStyle = '#f4ce81';
-            ctx.fillRect(x + 9, top + 8, 3, 3);
+            ctx.fillRect(x + 9, top + 8 + Math.floor((Math.sin(animationClock * .5 + x) + 1) * 2), 3, 3);
+        }
+    }
+
+    function drawAmbientMotes() {
+        for (let index = 0; index < 18; index += 1) {
+            const phase = animationClock * (index % 3 + 1) * .12 + index * 2.4;
+            const x = (index * 137 + Math.sin(phase) * 13 + canvasWidth) % canvasWidth;
+            const y = 44 + (index * 61 + Math.cos(phase * .7) * 15) % 220;
+            const alpha = .12 + (Math.sin(phase * 1.8) + 1) * .1;
+            ctx.fillStyle = `rgba(246, 220, 166, ${alpha})`;
+            ctx.fillRect(Math.round(x), Math.round(y), index % 4 === 0 ? 3 : 2, 2);
         }
     }
 
     function drawSignalRoom() {
-        ctx.fillStyle = '#192632';
+        const wall = ctx.createLinearGradient(0, 0, 0, 300);
+        wall.addColorStop(0, '#1a2834');
+        wall.addColorStop(.72, '#273640');
+        wall.addColorStop(1, '#34434a');
+        ctx.fillStyle = wall;
         ctx.fillRect(0, 0, canvasWidth, canvasHeight);
-        ctx.fillStyle = '#344553';
-        ctx.fillRect(0, 0, canvasWidth, 31);
+        ctx.fillStyle = '#111c24';
+        ctx.fillRect(0, 0, canvasWidth, 34);
+        ctx.fillStyle = '#45545b';
+        ctx.fillRect(0, 32, canvasWidth, 4);
         ctx.fillStyle = '#293c4b';
         ctx.fillRect(0, 264, canvasWidth, 168);
         for (let x = 0; x < canvasWidth; x += 48) {
             ctx.fillStyle = x % 96 === 0 ? '#3d5260' : '#263946';
             ctx.fillRect(x, 31, 4, 233);
         }
-        ctx.fillStyle = '#0d1822';
+        ctx.fillStyle = '#ae9465';
+        ctx.fillRect(90, 62, 4, 177);
+        ctx.fillRect(674, 62, 4, 177);
+
+        const ceilingLamp = ctx.createRadialGradient(385, 40, 4, 385, 40, 190);
+        ceilingLamp.addColorStop(0, 'rgba(230, 202, 143, .18)');
+        ceilingLamp.addColorStop(1, 'rgba(230, 202, 143, 0)');
+        ctx.fillStyle = ceilingLamp;
+        ctx.fillRect(190, 0, 390, 218);
+
+        ctx.fillStyle = '#182833';
         ctx.fillRect(125, 64, 518, 171);
-        ctx.strokeStyle = '#738390';
+        ctx.fillStyle = '#0d1822';
+        ctx.fillRect(132, 71, 504, 157);
+        ctx.strokeStyle = '#82908f';
+        ctx.lineWidth = 2;
         ctx.strokeRect(125, 64, 518, 171);
+        ctx.fillStyle = '#273946';
+        ctx.fillRect(135, 101, 488, 2);
+        ctx.fillRect(135, 222, 488, 3);
+        ctx.fillStyle = '#d2bd8e';
+        ctx.fillRect(145, 110, 4, 101);
+        ctx.fillRect(619, 110, 4, 101);
+
+        ctx.fillStyle = '#42535d';
+        ctx.fillRect(163, 300, 439, 10);
+        ctx.fillStyle = '#263843';
+        ctx.fillRect(167, 310, 431, 49);
+        ctx.fillStyle = '#202f39';
+        ctx.fillRect(175, 320, 415, 6);
+        ctx.fillStyle = '#8d7858';
+        ctx.fillRect(178, 348, 11, 55);
+        ctx.fillRect(576, 348, 11, 55);
+
+        ctx.fillStyle = '#596f61';
+        ctx.fillRect(46, 236, 7, 37);
+        ctx.fillRect(38, 243, 22, 16);
+        ctx.fillStyle = '#85927a';
+        ctx.fillRect(36, 235, 27, 8);
+        ctx.fillStyle = '#765c48';
+        ctx.fillRect(37, 269, 26, 5);
+
+        ctx.fillStyle = '#765e44';
+        ctx.fillRect(694, 223, 28, 38);
+        ctx.fillStyle = '#9b7c54';
+        ctx.fillRect(691, 219, 34, 6);
+        ctx.fillStyle = '#405b61';
+        ctx.fillRect(699, 230, 7, 7);
+        ctx.fillRect(711, 230, 7, 7);
+
+        ctx.fillStyle = '#0d1822';
         ctx.fillStyle = '#e2c47f';
         ctx.font = '11px monospace';
         ctx.textAlign = 'center';
         ctx.fillText('SIGNAL SEQUENCE', 384, 93);
         ['LAMP', 'BELL', 'GATE'].forEach((label, index) => {
             const x = 226 + index * 159;
-            ctx.fillStyle = bellFixed ? '#91d8c6' : '#425462';
-            ctx.fillRect(x, 140, 62, 53);
+            const lit = bellFixed || index < puzzleProgress;
+            if (lit) {
+                const switchGlow = ctx.createRadialGradient(x + 31, 163, 2, x + 31, 163, 48);
+                switchGlow.addColorStop(0, 'rgba(145, 216, 198, .32)');
+                switchGlow.addColorStop(1, 'rgba(145, 216, 198, 0)');
+                ctx.fillStyle = switchGlow;
+                ctx.fillRect(x - 20, 112, 102, 91);
+            }
+            ctx.fillStyle = '#5b5949';
+            ctx.fillRect(x - 3, 134, 68, 61);
+            ctx.fillStyle = lit ? '#91d8c6' : '#425462';
+            ctx.fillRect(x, 137, 62, 53);
+            ctx.fillStyle = lit ? '#d9f6e8' : '#82908e';
+            ctx.fillRect(x + 10, 146, 42, 4);
+            ctx.fillStyle = lit ? '#579283' : '#293843';
+            ctx.fillRect(x + 10, 156, 42, 24);
             ctx.fillStyle = '#dfe2d7';
             ctx.font = '9px monospace';
             ctx.fillText(label, x + 31, 212);
         });
-        ctx.fillStyle = '#70808a';
-        ctx.fillRect(163, 300, 439, 10);
+        ctx.fillStyle = '#e2c47f';
+        ctx.fillRect(149, 83, 8, 8);
+        ctx.fillRect(611, 83, 8, 8);
+        ctx.fillStyle = '#657983';
+        ctx.fillRect(197, 250, 374, 3);
     }
 
     function drawTunnel() {
@@ -1246,8 +1437,8 @@
 
     function drawMorrow() {
         const size = 6;
-        const startX = scene === 'bell' ? 510 : scene === 'tunnel' ? 267 : 398;
-        const startY = scene === 'tunnel' ? 12 : 120;
+        const startX = scene === 'bell' ? 510 : scene === 'tunnel' ? 267 : scene === 'exit' ? 390 : 398;
+        const startY = scene === 'tunnel' ? 12 : scene === 'exit' ? 238 : 120;
         const float = Math.sin(animationClock * 3.2) * 1.8;
         const glow = .08 + (Math.sin(animationClock * 2.4) + 1) * .045;
         ctx.fillStyle = `rgba(242, 205, 132, ${glow})`;
@@ -1421,9 +1612,11 @@
         const bass = bassThemes[musicScene] || bassThemes.platform;
         while (nextMusicBeat < audioContext.currentTime + .16) {
             const step = musicStep % melody.length;
-            scheduleTone(melody[step], nextMusicBeat, .19, 'square', .012);
+            scheduleTone(melody[step], nextMusicBeat, .3, 'sine', .014);
             if (step % 4 === 0) {
-                scheduleTone(bass[Math.floor(step / 4) % bass.length], nextMusicBeat, .42, 'triangle', .018);
+                scheduleTone(bass[Math.floor(step / 4) % bass.length], nextMusicBeat, .8, 'triangle', .012);
+            } else if (step % 4 === 2) {
+                scheduleTone(melody[(step + 4) % melody.length] * 1.5, nextMusicBeat, .48, 'sine', .004);
             }
             musicStep += 1;
             nextMusicBeat += .24;
@@ -1483,6 +1676,7 @@
     document.getElementById('journal-button').addEventListener('click', openJournal);
     document.getElementById('close-journal').addEventListener('click', () => journalDialog.close());
     document.getElementById('save-button').addEventListener('click', () => saveProgress());
+    interactButton.addEventListener('click', interactNearest);
 
     document.querySelectorAll('[data-switch]').forEach((button) => {
         button.addEventListener('click', () => pressSwitch(button.dataset.switch));

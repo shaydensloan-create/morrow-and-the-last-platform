@@ -1,0 +1,17 @@
+{
+  "name": "Morrow and the Last Light",
+  "short_name": "Last Light",
+  "description": "A cozy little night adventure about the light we leave on.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#101820",
+  "theme_color": "#111a24",
+  "icons": [
+    {
+      "src": "assets/lantern.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
