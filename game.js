@@ -21,6 +21,8 @@
     const stubsDisplay = document.getElementById('stubs');
     const runnerTime = document.getElementById('runner-time');
     const soundToggle = document.getElementById('sound-toggle');
+    const exploreHud = document.getElementById('explore-hud');
+    const explorePrompt = document.getElementById('explore-prompt');
     const journalDialog = document.getElementById('journal-dialog');
     const saveStatus = document.getElementById('save-status');
     const saveFeedback = document.getElementById('save-feedback');
@@ -31,7 +33,24 @@
     const canvasHeight = canvas.height;
     const runBounds = { left: 76, right: 692, top: 92, bottom: 408 };
     const courier = { x: 384, y: 380, radius: 9, speed: 218 };
+    const hero = { x: 352, y: 244, facing: 'right', walking: false, speed: 148 };
+    const characters = {
+        pip: { x: 211, y: 238, sprite: ['...ppp...', '..ppppp..', '.ppppppp.', '.pppeppp.', '.ppppppp.', '..ppppp..', '...ppp...', '...ppp...'], colors: { p: '#b98367', e: '#fff2d6' } },
+        vale: { x: 562, y: 231, sprite: ['...vvvv...', '..vvvvvv..', '.vvvvvvvv.', '.vveevvvv.', '.vvvvvvvv.', '..vvvvvv..', '...vvvv...', '..bbbbbb..', '.bbbbbbbb.', '.bbbyybbb.', '..bbbbbb..'], colors: { v: '#879dc1', e: '#fff7de', b: '#4c687f', y: '#e9c579' } }
+    };
     const switchSequence = ['lamp', 'bell', 'gate'];
+    const musicThemes = {
+        platform: [392, 0, 523.25, 0, 587.33, 523.25, 392, 0, 329.63, 0, 392, 0, 523.25, 392, 293.66, 0],
+        bell: [293.66, 349.23, 392, 0, 440, 392, 349.23, 0, 293.66, 0, 349.23, 392, 440, 0, 392, 0],
+        tunnel: [261.63, 0, 311.13, 0, 349.23, 311.13, 261.63, 0, 233.08, 0, 261.63, 0, 311.13, 0, 349.23, 0],
+        exit: [392, 523.25, 587.33, 0, 659.25, 587.33, 523.25, 0, 440, 523.25, 587.33, 0, 523.25, 440, 392, 0]
+    };
+    const bassThemes = {
+        platform: [130.81, 146.83, 110, 98],
+        bell: [146.83, 174.61, 130.81, 116.54],
+        tunnel: [116.54, 130.81, 103.83, 98],
+        exit: [196, 146.83, 174.61, 130.81]
+    };
     const saveKey = 'morrow-last-light-save-v1';
     const morrowSprite = [
         '.......wwww.......',
@@ -51,6 +70,22 @@
         '....bb......bb......',
         '...bb........bb.....'
     ];
+    const courierSprite = [
+        '....hhhh....',
+        '...hhhhhh...',
+        '...hssss h..',
+        '...hsssssh..',
+        '....ssess...',
+        '.....sss....',
+        '....ccccc...',
+        '...ccccccc..',
+        '..cccyccccc.',
+        '..cccyccccc.',
+        '...ccccccc..',
+        '....cc.cc...',
+        '...cc...cc..',
+        '..cc.....cc.'
+    ];
     const colors = {
         w: '#9ad9c8',
         g: '#f5c66f',
@@ -58,6 +93,13 @@
         e: '#fffdf5',
         b: '#4c6275',
         y: '#ffe28a'
+    };
+    const courierColors = {
+        h: '#6f8da0',
+        s: '#eac99b',
+        e: '#fff3d4',
+        c: '#577c84',
+        y: '#e7bd72'
     };
 
     let scene = 'platform';
@@ -79,6 +121,15 @@
     let typeToken = 0;
     let questionAsked = false;
     let destinationShared = false;
+    let pipMet = false;
+    let pipTicket = false;
+    let valeMet = false;
+    let animationClock = 0;
+    let stepClock = 0;
+    let musicStep = 0;
+    let nextMusicBeat = 0;
+    let musicScene = '';
+    let wispCalm = 0;
     let audioContext = null;
     let ambienceGain = null;
     let soundOn = false;
@@ -106,13 +157,22 @@
         invulnerable = 0;
         questionAsked = false;
         destinationShared = false;
+        pipMet = false;
+        pipTicket = false;
+        valeMet = false;
         lastEnding = '';
         checkpoint = 'platform';
+        wispCalm = 0;
+        hero.x = 352;
+        hero.y = 244;
+        hero.facing = 'right';
+        hero.walking = false;
         hazards.length = 0;
         ticketStubs.length = 0;
         keys.clear();
         choiceList.replaceChildren();
         choiceList.hidden = false;
+        exploreHud.hidden = true;
         puzzlePanel.hidden = true;
         runnerHud.hidden = true;
         pauseCurtain.hidden = true;
@@ -136,6 +196,7 @@
         };
         sceneName.textContent = labels[scene][0];
         chapterLabel.textContent = labels[scene][1];
+        setMusicScene();
         drawScene();
     }
 
@@ -146,9 +207,12 @@
     }
 
     function speak(text, choices, speaker = 'MORROW') {
-        const speakerInfo = speaker === 'STORY'
-            ? ['THE NIGHT COURIER', 'ON A DELIVERY', '✦']
-            : ['MORROW', 'LIGHTKEEPER, PLATFORM 08', 'M'];
+        const speakerInfo = {
+            STORY: ['THE NIGHT COURIER', 'ON A DELIVERY', '✦'],
+            PIP: ['PIP', 'STATION KEEPER OF LOST THINGS', 'P'],
+            VALE: ['VALE', 'CARTOGRAPHER, SERVICE LEVEL', 'V'],
+            MORROW: ['MORROW', 'LIGHTKEEPER, PLATFORM 08', 'M']
+        }[speaker] || ['THE SIGNAL', 'A VOICE IN THE WIRES', '≈'];
         setSpeaker(...speakerInfo);
         choiceList.replaceChildren();
         choiceList.hidden = true;
@@ -197,6 +261,10 @@
         focusDisplay.textContent = `${'● '.repeat(focus)}${'○ '.repeat(4 - focus)}`.trim();
         trustDisplay.textContent = `${'◆ '.repeat(Math.min(trust, 3))}${'◇ '.repeat(Math.max(0, 3 - trust))}`.trim();
         stubsDisplay.textContent = `${stubsFound} / 3`;
+        const party = ['COURIER', 'MORROW'];
+        if (pipMet) party.push('PIP');
+        if (valeMet) party.push('VALE');
+        document.getElementById('party-members').textContent = party.join(' · ');
     }
 
     function addTrust(value = 1) {
@@ -216,6 +284,9 @@
             puzzleProgress,
             questionAsked,
             destinationShared,
+            pipMet,
+            pipTicket,
+            valeMet,
             lastEnding,
             endingHistory,
             savedAt: new Date().toISOString()
@@ -272,6 +343,9 @@
         puzzleProgress = Number.isInteger(data.puzzleProgress) ? Math.max(0, Math.min(2, data.puzzleProgress)) : 0;
         questionAsked = data.questionAsked === true;
         destinationShared = data.destinationShared === true;
+        pipMet = data.pipMet === true;
+        pipTicket = data.pipTicket === true;
+        valeMet = data.valeMet === true;
         checkpoint = ['platform', 'signal', 'tunnel', 'ending'].includes(data.checkpoint)
             ? data.checkpoint
             : 'platform';
@@ -322,12 +396,15 @@
         document.getElementById('journal-button').hidden = false;
         document.getElementById('save-button').hidden = false;
         setScene('platform');
+        mode = 'walk';
+        exploreHud.hidden = false;
         saveProgress('platform');
         speak(
-            'At the bottom of the city, the Meridian station keeps a sky of its own: three lamps, one timetable, and a moth who refuses to close.',
-            [{ label: 'Walk toward the lantern', action: meetMorrow }],
+            'At the bottom of the city, the Meridian station keeps a sky of its own. Morrow tends the lantern. Pip keeps the lost things. Walk around and say hello.',
+            [],
             'STORY'
         );
+        startFrameLoop();
     }
 
     function updateJournal() {
@@ -345,6 +422,7 @@
         const inventory = ['A sealed jar of dawn — the courier’s delivery.'];
         if (platformClue) inventory.push('A maintenance note — “Wake the lamp. Give the bell a voice. Unlatch the way.”');
         if (bellFixed) inventory.push('A brass signal key — warm from the bell mechanism.');
+        if (pipTicket) inventory.push('Pip’s return ticket — softened by years in a little wooden box.');
         for (let index = 0; index < stubsFound; index += 1) {
             inventory.push([
                 'Ticket stub — Platform 08.',
@@ -357,6 +435,8 @@
         const memories = [];
         if (questionAsked) memories.push('Morrow keeps the lamp lit in case someone needs the way home.');
         if (destinationShared) memories.push('The jar holds a small piece of morning.');
+        if (pipMet) memories.push('Pip keeps the station’s lost things company until their people return.');
+        if (valeMet) memories.push('Vale remembers the old railway signal sequence.');
         if (platformClue) memories.push('The signal runs in a three-step sequence.');
         if (bellFixed) memories.push('The old gate still opens when the signal is restored.');
         if (memories.length === 0) memories.push('Your night is just beginning.');
@@ -388,21 +468,22 @@
     }
 
     function signalRoomChoices() {
+        mode = 'walk';
+        exploreHud.hidden = false;
+        hero.x = bellFixed ? 306 : 276;
+        hero.y = 233;
+        hero.facing = 'right';
+        explorePrompt.textContent = bellFixed
+            ? 'The gate is open. Talk to Vale or approach the tunnel door.'
+            : 'Walk to Vale or the signal board. Press E to interact.';
         speak(
             bellFixed
-                ? 'The signal lamp holds steady. The old gate is open, and the tunnel is waiting.'
-                : 'Three switches wait beneath the maintenance note. The room smells of dust and warm copper.',
-            bellFixed
-                ? [
-                    { label: 'Enter the flooded tunnel', action: enterTunnel },
-                    { label: 'Return to Platform 08', action: returnToPlatform }
-                ]
-                : [
-                    { label: 'Try the signal switches', action: beginPuzzle },
-                    { label: 'Return to the platform', action: returnToPlatform }
-                ],
+                ? 'The signal lamp holds steady. Vale waits by the old gate.'
+                : 'Three switches wait beneath the maintenance note. Vale, the cartographer, is sketching the wiring.',
+            [],
             'STORY'
         );
+        startFrameLoop();
     }
 
     function meetMorrow() {
@@ -418,12 +499,11 @@
     }
 
     function platformChoices() {
-        const choices = [];
-        if (!questionAsked) choices.push({ label: 'Ask who Morrow is waiting for', action: askAboutWaiting });
-        if (!destinationShared) choices.push({ label: 'Tell Morrow about your delivery', action: shareDestination });
-        if (!platformClue) choices.push({ label: 'Read the old timetable', action: readTimetable });
-        choices.push({ label: 'Go to the signal room', action: enterBellRoom });
-        speak('The station clock has stopped between two minutes. Morrow waits beneath the only working lamp.', choices, 'STORY');
+        mode = 'walk';
+        exploreHud.hidden = false;
+        explorePrompt.textContent = 'Walk around with arrows / WASD. Press E near someone to talk.';
+        speak('The station clock has stopped between two minutes. Pip sorts lost things. Morrow waits beneath the only working lamp.', [], 'STORY');
+        startFrameLoop();
     }
 
     function askAboutWaiting() {
@@ -470,14 +550,18 @@
         saveProgress('signal');
         setScene('bell');
         puzzlePanel.hidden = true;
+        mode = 'walk';
+        exploreHud.hidden = false;
+        hero.x = 280;
+        hero.y = 230;
+        hero.facing = 'right';
+        explorePrompt.textContent = 'Walk to Vale or the signal board. Press E to interact.';
         speak(
-            'The signal room is small enough to warm with one breath. Three switches wait beneath a maintenance note. Morrow brushes dust from the first.',
-            [
-                { label: 'Try the signal switches', action: beginPuzzle },
-                { label: 'Return to the platform', action: returnToPlatform }
-            ],
+            'The signal room is small enough to warm with one breath. Vale is mapping the old switches while Morrow brushes dust from the lamp.',
+            [],
             'STORY'
         );
+        startFrameLoop();
     }
 
     function returnToPlatform() {
@@ -487,6 +571,8 @@
     }
 
     function beginPuzzle() {
+        mode = 'story';
+        exploreHud.hidden = true;
         choiceList.hidden = true;
         puzzlePanel.hidden = false;
         updatePuzzleLights();
@@ -496,6 +582,127 @@
         saveProgress('signal');
         speak('The switches are labeled LAMP, BELL, and GATE. Morrow watches your hand.', []);
         puzzlePanel.hidden = false;
+    }
+
+    function resumeSignalExplore() {
+        mode = 'walk';
+        exploreHud.hidden = false;
+        explorePrompt.textContent = 'Walk to Vale, the signal board, or the platform stairs.';
+        speak(bellFixed
+            ? 'The gate is open. Vale waits beside the tunnel entrance.'
+            : 'Vale returns to the map. The signal board waits in the center of the room.', [], 'STORY');
+        startFrameLoop();
+    }
+
+    function talkToPip() {
+        mode = 'story';
+        exploreHud.hidden = true;
+        playChime(440);
+        speak(
+            pipMet
+                ? 'Pip pats the little ticket box. “It is less lonely when someone knows what the things are for.”'
+                : 'Pip, a small station mouse with an enormous keyring, is sorting the things travelers left behind. “I keep the lost things company until their people come back.”',
+            [
+                ...(!pipTicket ? [{ label: 'Ask about the ticket marked RETURN', action: givePipTicket }] : []),
+                { label: 'Ask about the station', action: pipStationStory },
+                { label: 'Let Pip get back to work', action: platformChoices }
+            ],
+            'PIP'
+        );
+        pipMet = true;
+        updateStatus();
+        saveProgress();
+    }
+
+    function givePipTicket() {
+        pipTicket = true;
+        stubsFound = Math.min(3, stubsFound + 1);
+        addTrust();
+        saveProgress();
+        updateJournal();
+        speak(
+            '“This one has been waiting longer than I have,” Pip says, placing the stub in your hand. “Maybe it is waiting for the person, not the train.”',
+            [{ label: 'Keep the ticket safe', action: platformChoices }],
+            'PIP'
+        );
+    }
+
+    function pipStationStory() {
+        speak(
+            '“The trains stopped before I was born,” Pip says. “But people still leave things here. I think the station is good at keeping promises.”',
+            [{ label: 'Thank Pip', action: platformChoices }],
+            'PIP'
+        );
+    }
+
+    function talkToVale() {
+        mode = 'story';
+        exploreHud.hidden = true;
+        playChime(392);
+        speak(
+            valeMet
+                ? 'Vale traces the rail line on a paper map. “The old route still exists, even if nobody is running it.”'
+                : 'Vale, a retired cartographer, has drawn the station from memory. “The map is not wrong,” they say. “The city just grew around it.”',
+            [
+                { label: valeMet ? 'Ask Vale to check the signal' : 'Ask about the closed line', action: hearValeStory },
+                { label: 'Try the signal board', action: beginPuzzle },
+                { label: 'Return to the platform stairs', action: returnToPlatform }
+            ],
+            'VALE'
+        );
+    }
+
+    function hearValeStory() {
+        if (!valeMet) {
+            valeMet = true;
+            addTrust();
+            saveProgress('signal');
+        }
+        speak(
+            'Vale unfolds the map. “The bell used to call the last train home. Wake the lamp first, ring the bell second, then open the gate. That order is older than the station.”',
+            [
+                { label: 'Try the signal board', action: beginPuzzle },
+                { label: 'Thank Vale and look around', action: resumeSignalExplore }
+            ],
+            'VALE'
+        );
+    }
+
+    function interactNearest() {
+        if (mode !== 'walk') return;
+        let targets = [];
+        if (scene === 'platform') {
+            targets = [
+                { x: characters.pip.x, y: characters.pip.y, action: talkToPip, label: 'Pip' },
+                { x: 452, y: 242, action: meetMorrow, label: 'Morrow' }
+            ];
+        } else if (scene === 'bell') {
+            targets = [
+                { x: characters.vale.x, y: characters.vale.y, action: talkToVale, label: 'Vale' },
+                { x: 384, y: 198, action: beginPuzzle, label: 'the signal board' },
+                { x: 111, y: 226, action: returnToPlatform, label: 'the platform stairs' },
+                ...(bellFixed ? [{ x: 659, y: 226, action: enterTunnel, label: 'the tunnel gate' }] : [])
+            ];
+        }
+
+        const nearest = targets
+            .map((target) => ({ ...target, distance: Math.hypot(target.x - hero.x, target.y - hero.y) }))
+            .sort((a, b) => a.distance - b.distance)[0];
+        if (!nearest || nearest.distance > 58) {
+            playChime(196);
+            explorePrompt.textContent = 'No one is close enough to hear you. Walk nearer and try E again.';
+            return;
+        }
+        mode = 'story';
+        exploreHud.hidden = true;
+        keys.clear();
+        nearest.action();
+    }
+
+    function startFrameLoop() {
+        if (frameId) window.cancelAnimationFrame(frameId);
+        lastFrame = performance.now();
+        frameId = window.requestAnimationFrame(frame);
     }
 
     function updatePuzzleLights() {
@@ -537,6 +744,7 @@
     function enterTunnel() {
         setScene('tunnel');
         mode = 'runner';
+        exploreHud.hidden = true;
         runnerTimeLeft = 14;
         runnerElapsed = 0;
         hazardTimer = 0.35;
@@ -661,12 +869,61 @@
     }
 
     function frame(timestamp) {
-        if (mode !== 'runner') return;
+        if (mode !== 'runner' && mode !== 'walk') return;
         const delta = Math.min((timestamp - lastFrame) / 1000, 0.05);
         lastFrame = timestamp;
-        updateRunner(delta);
+        if (mode === 'runner') updateRunner(delta);
+        else updateWalk(delta);
+        animationClock += delta;
         drawScene();
-        if (mode === 'runner') frameId = window.requestAnimationFrame(frame);
+        if (mode === 'runner' || mode === 'walk') frameId = window.requestAnimationFrame(frame);
+    }
+
+    function updateWalk(delta) {
+        const horizontal = Number(keys.has('ArrowRight') || keys.has('d'))
+            - Number(keys.has('ArrowLeft') || keys.has('a'));
+        const vertical = Number(keys.has('ArrowDown') || keys.has('s'))
+            - Number(keys.has('ArrowUp') || keys.has('w'));
+        const moving = horizontal !== 0 || vertical !== 0;
+        hero.walking = moving;
+        if (moving) {
+            const magnitude = Math.hypot(horizontal, vertical);
+            hero.x += horizontal / magnitude * hero.speed * delta;
+            hero.y += vertical / magnitude * hero.speed * delta;
+            hero.facing = Math.abs(horizontal) > Math.abs(vertical)
+                ? (horizontal > 0 ? 'right' : 'left')
+                : (vertical > 0 ? 'down' : 'up');
+            const bounds = scene === 'bell'
+                ? { left: 103, right: 666, top: 126, bottom: 258 }
+                : { left: 76, right: 692, top: 150, bottom: 259 };
+            hero.x = Math.max(bounds.left, Math.min(bounds.right, hero.x));
+            hero.y = Math.max(bounds.top, Math.min(bounds.bottom, hero.y));
+            stepClock -= delta;
+            if (stepClock <= 0) {
+                playChime(168);
+                stepClock = 0.32;
+            }
+        } else {
+            stepClock = 0;
+        }
+
+        const targets = scene === 'platform'
+            ? [
+                { x: characters.pip.x, y: characters.pip.y, label: 'Pip' },
+                { x: 452, y: 242, label: 'Morrow' }
+            ]
+            : [
+                { x: characters.vale.x, y: characters.vale.y, label: 'Vale' },
+                { x: 384, y: 198, label: 'the signal board' },
+                { x: 111, y: 226, label: 'the platform stairs' },
+                ...(bellFixed ? [{ x: 659, y: 226, label: 'the tunnel gate' }] : [])
+            ];
+        const near = targets
+            .map((target) => ({ ...target, distance: Math.hypot(target.x - hero.x, target.y - hero.y) }))
+            .sort((a, b) => a.distance - b.distance)[0];
+        explorePrompt.textContent = near && near.distance < 58
+            ? `Press E to interact with ${near.label}.`
+            : 'Walk with arrows / WASD. Press E near a person or object.';
     }
 
     function finishTunnel() {
@@ -758,6 +1015,9 @@
         else if (scene === 'tunnel') drawTunnel();
         else drawPlatform();
         drawMorrow();
+        if (scene === 'platform') drawPip();
+        if (scene === 'bell') drawVale();
+        if (mode === 'walk') drawHero();
         if (mode === 'runner' || mode === 'paused' || mode === 'gameover') drawRunnerScene();
     }
 
@@ -883,9 +1143,12 @@
         const size = 6;
         const startX = scene === 'bell' ? 510 : scene === 'tunnel' ? 267 : 398;
         const startY = scene === 'tunnel' ? 12 : 120;
-        const float = mode === 'runner' ? Math.sin(runnerElapsed * 4) * 2 : 0;
-        ctx.fillStyle = 'rgba(242, 205, 132, .1)';
-        ctx.fillRect(startX - 18, startY - 12, 144, 130);
+        const float = Math.sin(animationClock * 3.2) * 1.8;
+        const glow = .08 + (Math.sin(animationClock * 2.4) + 1) * .045;
+        ctx.fillStyle = `rgba(242, 205, 132, ${glow})`;
+        ctx.beginPath();
+        ctx.ellipse(startX + 54, startY + 68 + float, 60, 68, 0, 0, Math.PI * 2);
+        ctx.fill();
         morrowSprite.forEach((row, y) => {
             [...row].forEach((pixel, x) => {
                 if (colors[pixel]) {
@@ -900,6 +1163,66 @@
         ctx.fillRect(startX + 56, startY + 111, 9, 14);
         ctx.fillStyle = '#fff3cc';
         ctx.fillRect(startX + 59, startY + 115, 3, 6);
+        const wing = Math.sin(animationClock * 12) > .25 ? 5 : 2;
+        ctx.fillStyle = '#a4dcca';
+        ctx.globalAlpha = .58;
+        ctx.fillRect(startX + 11, startY + 20 + float, wing, 15);
+        ctx.fillRect(startX + 112, startY + 20 + float, wing, 15);
+        ctx.globalAlpha = 1;
+    }
+
+    function drawPixelSprite(sprite, palette, centerX, footY, cell, float = 0, facing = 'right') {
+        const columns = Math.max(...sprite.map((row) => row.length));
+        const startX = Math.round(centerX - columns * cell / 2);
+        const startY = Math.round(footY - sprite.length * cell + float);
+        ctx.save();
+        if (facing === 'left') {
+            ctx.translate(centerX * 2, 0);
+            ctx.scale(-1, 1);
+        }
+        sprite.forEach((row, y) => {
+            [...row].forEach((pixel, x) => {
+                if (palette[pixel]) {
+                    ctx.fillStyle = palette[pixel];
+                    ctx.fillRect(startX + x * cell, startY + y * cell, cell, cell);
+                }
+            });
+        });
+        ctx.restore();
+    }
+
+    function drawPip() {
+        const bob = Math.sin(animationClock * 2.4 + 1) * 1.5;
+        drawPixelSprite(characters.pip.sprite, characters.pip.colors, characters.pip.x, characters.pip.y, 5, bob);
+        ctx.fillStyle = '#e5cda9';
+        ctx.font = '8px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('PIP', characters.pip.x, characters.pip.y + 13);
+        ctx.textAlign = 'start';
+    }
+
+    function drawVale() {
+        const bob = Math.sin(animationClock * 1.7 + 2) * 1.2;
+        drawPixelSprite(characters.vale.sprite, characters.vale.colors, characters.vale.x, characters.vale.y, 5, bob);
+        ctx.fillStyle = '#d7e0e3';
+        ctx.font = '8px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('VALE', characters.vale.x, characters.vale.y + 13);
+        ctx.textAlign = 'start';
+    }
+
+    function drawHero() {
+        const walkBob = hero.walking ? Math.sin(animationClock * 18) * 2 : Math.sin(animationClock * 2) * .8;
+        const armSwing = hero.walking && Math.floor(animationClock * 9) % 2 === 0;
+        const sprite = armSwing
+            ? [...courierSprite.slice(0, 10), '...ccycc....', '....cc.cc...', '...cc...cc..', '..cc.....cc.']
+            : courierSprite;
+        drawPixelSprite(sprite, courierColors, hero.x, hero.y, 5, walkBob, hero.facing);
+        ctx.fillStyle = '#d9e2dd';
+        ctx.font = '8px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('YOU', hero.x, hero.y + 14);
+        ctx.textAlign = 'start';
     }
 
     function drawRunnerScene() {
@@ -961,15 +1284,52 @@
         if (!audioContext || !soundOn) return;
         const oscillator = audioContext.createOscillator();
         const gain = audioContext.createGain();
-        oscillator.type = 'sine';
+        oscillator.type = 'triangle';
         oscillator.frequency.value = frequency;
         gain.gain.setValueAtTime(.0001, audioContext.currentTime);
-        gain.gain.exponentialRampToValueAtTime(.045, audioContext.currentTime + .025);
-        gain.gain.exponentialRampToValueAtTime(.0001, audioContext.currentTime + .32);
+        gain.gain.exponentialRampToValueAtTime(.035, audioContext.currentTime + .018);
+        gain.gain.exponentialRampToValueAtTime(.0001, audioContext.currentTime + .24);
         oscillator.connect(gain);
         gain.connect(ambienceGain);
         oscillator.start();
-        oscillator.stop(audioContext.currentTime + .34);
+        oscillator.stop(audioContext.currentTime + .26);
+    }
+
+    function scheduleTone(frequency, start, duration, waveform, volume) {
+        if (!frequency) return;
+        const oscillator = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+        oscillator.type = waveform;
+        oscillator.frequency.setValueAtTime(frequency, start);
+        gain.gain.setValueAtTime(.0001, start);
+        gain.gain.exponentialRampToValueAtTime(volume, start + .025);
+        gain.gain.exponentialRampToValueAtTime(.0001, start + duration);
+        oscillator.connect(gain);
+        gain.connect(ambienceGain);
+        oscillator.start(start);
+        oscillator.stop(start + duration + .02);
+    }
+
+    function scheduleMusic() {
+        if (!audioContext || !soundOn) return;
+        const melody = musicThemes[musicScene] || musicThemes.platform;
+        const bass = bassThemes[musicScene] || bassThemes.platform;
+        while (nextMusicBeat < audioContext.currentTime + .16) {
+            const step = musicStep % melody.length;
+            scheduleTone(melody[step], nextMusicBeat, .19, 'square', .012);
+            if (step % 4 === 0) {
+                scheduleTone(bass[Math.floor(step / 4) % bass.length], nextMusicBeat, .42, 'triangle', .018);
+            }
+            musicStep += 1;
+            nextMusicBeat += .24;
+        }
+    }
+
+    function setMusicScene() {
+        if (musicScene === scene) return;
+        musicScene = scene;
+        musicStep = 0;
+        if (audioContext) nextMusicBeat = audioContext.currentTime + .04;
     }
 
     function toggleSound() {
@@ -982,25 +1342,15 @@
         if (!audioContext) {
             audioContext = new AudioContext();
             ambienceGain = audioContext.createGain();
-            ambienceGain.gain.value = 1;
+            ambienceGain.gain.value = 0;
             ambienceGain.connect(audioContext.destination);
-            const master = audioContext.createGain();
-            master.gain.value = .025;
-            master.connect(ambienceGain);
-            [55, 82.41, 110].forEach((frequency, index) => {
-                const oscillator = audioContext.createOscillator();
-                const voice = audioContext.createGain();
-                oscillator.type = index === 1 ? 'triangle' : 'sine';
-                oscillator.frequency.value = frequency;
-                voice.gain.value = index === 0 ? .22 : .1;
-                oscillator.connect(voice);
-                voice.connect(master);
-                oscillator.start();
-            });
+            nextMusicBeat = audioContext.currentTime + .04;
+            window.setInterval(scheduleMusic, 40);
         }
         soundOn = !soundOn;
         if (audioContext.state === 'suspended' && soundOn) audioContext.resume();
-        ambienceGain.gain.setTargetAtTime(soundOn ? 1 : 0, audioContext.currentTime, .08);
+        ambienceGain.gain.setTargetAtTime(soundOn ? .72 : 0, audioContext.currentTime, .12);
+        if (soundOn) scheduleMusic();
         soundToggle.textContent = `Sound: ${soundOn ? 'on' : 'off'}`;
         soundToggle.setAttribute('aria-pressed', String(soundOn));
     }
@@ -1053,9 +1403,19 @@
 
     document.addEventListener('keydown', (event) => {
         const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
-        if (mode === 'story' && typing && (event.key === 'Enter' || event.key === ' ')) {
+        if ((mode === 'story' || mode === 'walk') && typing && (event.key === 'Enter' || event.key === ' ')) {
             event.preventDefault();
             skipTyping();
+            return;
+        }
+        if (mode === 'walk' && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(event.key)) {
+            event.preventDefault();
+        }
+        if (mode === 'walk' && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'w', 'a', 's', 'd'].includes(key)) {
+            keys.add(key);
+        }
+        if (mode === 'walk' && (key === 'e' || key === 'Enter' || event.key === ' ')) {
+            if (!event.repeat) interactNearest();
             return;
         }
         if (mode === 'runner' && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(event.key)) {

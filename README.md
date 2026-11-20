@@ -1,7 +1,8 @@
 # Morrow and the Last Light
 
-A complete, short browser adventure about a night courier and Morrow, a lantern
-moth who keeps watch over the last underground station.
+A short, original browser RPG about a night courier and Morrow, a lantern moth
+who keeps watch over the last underground station. Explore the station, talk to
+its residents, restore a signal, and cross a moving tunnel challenge.
 
 The courier arrives at Platform 08 with a jar of dawn to deliver uphill. The
 Meridian line has been closed for years, and the old maintenance gate is the
@@ -21,19 +22,25 @@ Then open [http://localhost:8000](http://localhost:8000).
 
 ## Controls
 
-- **Mouse / touch:** choose story responses and use the signal switches.
+- **Mouse / touch:** choose story responses and use the signal switches. The
+  on-screen directional pad is available on touch devices.
 - **1–4:** choose a dialogue response.
-- **Enter / Space:** finish the current typewriter line.
-- **Arrow keys / WASD:** move through the flooded tunnel.
-- **Touch pad:** move on phones and tablets.
+- **Enter / Space:** finish the current typewriter line; **E / Enter** interacts
+  with nearby characters and objects while exploring.
+- **Arrow keys / WASD:** explore the platform and signal room, and move through
+  the flooded tunnel.
+- **Touch pad:** move while exploring and during the tunnel crossing.
 - **P:** pause or resume during the tunnel crossing.
 - **J:** open the journal.
 - **Save:** save the current safe checkpoint.
-- **Sound:** toggle the optional, locally generated ambient drone and chimes.
+- **Sound:** toggle the optional, locally synthesized scene music, footsteps,
+  and interaction chimes. Audio starts only after you turn it on.
 
 ## Story and progress
 
-- Explore Platform 08, talk with Morrow, and find the maintenance note.
+- Explore Platform 08 and meet Morrow, Pip, and Vale. Pip's keepsake and the
+  characters' stories are recorded in your journal.
+- Walk up to a character or object and press **E** to interact.
 - In the service room, restore the signal in order: **lamp, bell, gate**.
 - Cross the flooded tunnel, avoiding signal sparks and collecting old ticket
   stubs.

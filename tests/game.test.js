@@ -78,7 +78,8 @@ function createGame(storage = new Map(), random = () => 0.5) {
         'journal-button', 'save-button', 'close-journal', 'journal-objective',
         'journal-inventory', 'journal-memories', 'journal-endings', 'speaker',
         'speaker-role', 'speaker-avatar', 'turn-hint', 'game-over-copy',
-        'action-feedback', 'attack-title', 'attack-clock'
+        'action-feedback', 'attack-title', 'attack-clock',
+        'explore-hud', 'explore-prompt', 'party-members'
     ].forEach((id) => element(id));
     elements.get('scene').width = 768;
     elements.get('scene').height = 432;
@@ -123,6 +124,9 @@ function createGame(storage = new Map(), random = () => 0.5) {
             timers.push(callback);
             return timers.length;
         },
+        setInterval() {
+            return 1;
+        },
         clearTimeout() {
             timers.length = 0;
         }
@@ -156,6 +160,7 @@ function createGame(storage = new Map(), random = () => 0.5) {
 
     function key(type, value) {
         documentEvents.get(type)({ key: value, preventDefault() {} });
+        flushTypewriter();
     }
 
     function advance(seconds) {
@@ -183,19 +188,52 @@ function createGame(storage = new Map(), random = () => 0.5) {
 
 function progressToSignal(game, explore = false) {
     game.click(game.elements.get('start-game'));
-    game.choose(0);
+    interactMorrow(game);
     if (explore) {
         game.choose(0);
         game.choose(0);
+        interactMorrow(game);
         game.choose(0);
         game.choose(0);
+        interactMorrow(game);
         game.choose(0);
         game.choose(0);
+        interactMorrow(game);
         game.choose(0);
     } else {
         game.choose(3);
     }
-    game.choose(0);
+    interactBoard(game);
+}
+
+function interactMorrow(game) {
+    game.key('keydown', 'e');
+    game.key('keyup', 'e');
+    if (game.elements.get('choice-list').children.length) return;
+    game.key('keydown', 'ArrowRight');
+    game.advance(0.35);
+    game.key('keyup', 'ArrowRight');
+    game.key('keydown', 'e');
+    game.key('keyup', 'e');
+}
+
+function interactPip(game) {
+    game.key('keydown', 'ArrowLeft');
+    game.advance(0.85);
+    game.key('keyup', 'ArrowLeft');
+    game.key('keydown', 'e');
+    game.key('keyup', 'e');
+}
+
+function interactBoard(game) {
+    game.key('keydown', 'ArrowRight');
+    game.advance(0.7);
+    game.key('keyup', 'ArrowRight');
+    game.key('keydown', 'ArrowUp');
+    game.advance(0.2);
+    game.key('keyup', 'ArrowUp');
+    game.key('keydown', 'e');
+    game.key('keyup', 'e');
 }
 
 function solveSignal(game) {
@@ -210,8 +248,9 @@ test('story saves, resumes from a checkpoint, and journals discovered details', 
     let game = createGame(storage);
     game.click(game.elements.get('start-game'));
     game.key('keydown', 'Enter');
-    assert.equal(game.elements.get('choice-list').hidden, false);
-    game.choose(0);
+    assert.equal(game.elements.get('choice-list').hidden, true);
+    assert.match(game.elements.get('dialogue').textContent, /Morrow tends the lantern/);
+    interactMorrow(game);
     game.choose(0);
     game.choose(0);
     game.click(game.elements.get('save-button'));
@@ -234,6 +273,7 @@ test('new-story confirmation can be cancelled without replacing the save', () =>
     let game = createGame(storage);
     game.click(game.elements.get('start-game'));
     game.key('keydown', 'Enter');
+    interactMorrow(game);
     game.choose(0);
     game.click(game.elements.get('save-button'));
     const saved = storage.get('morrow-last-light-save-v1');
@@ -246,6 +286,41 @@ test('new-story confirmation can be cancelled without replacing the save', () =>
     assert.equal(storage.get('morrow-last-light-save-v1'), saved);
 });
 
+test('Pip can be met on the platform and joins the journal with a ticket', () => {
+    const storage = new Map();
+    let game = createGame(storage);
+    game.click(game.elements.get('start-game'));
+    interactPip(game);
+    assert.equal(game.elements.get('speaker').textContent, 'PIP');
+    game.choose(0);
+    assert.match(game.elements.get('party-members').textContent, /PIP/);
+    assert.match(game.elements.get('stubs').textContent, /1/);
+
+    game.click(game.elements.get('save-button'));
+    game = createGame(storage);
+    game.click(game.elements.get('continue-game'));
+    assert.match(game.elements.get('party-members').textContent, /PIP/);
+    game.click(game.elements.get('journal-button'));
+    assert.match(game.elements.get('journal-inventory').children.map((item) => item.textContent).join(' '), /Pip’s return ticket/);
+});
+
+test('Vale offers a second character route through the signal room', () => {
+    const game = createGame();
+    game.click(game.elements.get('start-game'));
+    interactMorrow(game);
+    game.choose(3);
+    game.key('keydown', 'ArrowRight');
+    game.advance(1.7);
+    game.key('keyup', 'ArrowRight');
+    game.key('keydown', 'e');
+    game.key('keyup', 'e');
+    assert.equal(game.elements.get('speaker').textContent, 'VALE');
+    game.choose(0);
+    assert.match(game.elements.get('trust').textContent, /◆/);
+    game.choose(1);
+    assert.match(game.elements.get('party-members').textContent, /VALE/);
+});
+
 test('switch sequence gates the tunnel and a discovered ending survives replay', () => {
     const game = createGame();
     progressToSignal(game, true);
@@ -256,7 +331,7 @@ test('switch sequence gates the tunnel and a discovered ending survives replay',
 
     const restored = createGame(game.storage);
     restored.click(restored.elements.get('continue-game'));
-    restored.choose(0);
+    interactBoard(restored);
     assert.equal(restored.lights[0].classes.has('lit'), true);
     restored.click(restored.switches[1]);
     restored.click(restored.switches[2]);
