@@ -21,6 +21,9 @@
     const stubsDisplay = document.getElementById('stubs');
     const runnerTime = document.getElementById('runner-time');
     const soundToggle = document.getElementById('sound-toggle');
+    const journalDialog = document.getElementById('journal-dialog');
+    const saveStatus = document.getElementById('save-status');
+    const saveFeedback = document.getElementById('save-feedback');
     const keys = new Set();
     const hazards = [];
     const ticketStubs = [];
@@ -29,6 +32,7 @@
     const runBounds = { left: 76, right: 692, top: 92, bottom: 408 };
     const courier = { x: 384, y: 380, radius: 9, speed: 218 };
     const switchSequence = ['lamp', 'bell', 'gate'];
+    const saveKey = 'morrow-last-light-save-v1';
     const morrowSprite = [
         '.......wwww.......',
         '......wwggww......',
@@ -78,6 +82,11 @@
     let audioContext = null;
     let ambienceGain = null;
     let soundOn = false;
+    let checkpoint = 'platform';
+    let endingHistory = [];
+    let lastEnding = '';
+    let typing = false;
+    let skipTyping = () => {};
 
     function resetGame() {
         window.cancelAnimationFrame(frameId);
@@ -97,6 +106,8 @@
         invulnerable = 0;
         questionAsked = false;
         destinationShared = false;
+        lastEnding = '';
+        checkpoint = 'platform';
         hazards.length = 0;
         ticketStubs.length = 0;
         keys.clear();
@@ -112,16 +123,7 @@
     }
 
     function startGame() {
-        resetGame();
-        titleScreen.hidden = true;
-        gameScreen.hidden = false;
-        setScene('platform');
-        speak(
-            'At the bottom of the city, the Meridian station keeps a sky of its own: three lamps, one timetable, and a moth who refuses to close.',
-            [{ label: 'Walk toward the lantern', action: meetMorrow }],
-            'STORY'
-        );
-        drawScene();
+        startNewStory();
     }
 
     function setScene(nextScene) {
@@ -153,16 +155,27 @@
         const token = ++typeToken;
         window.clearTimeout(typeTimer);
         dialogue.textContent = '';
+        typing = true;
         let index = 0;
         const typeNext = () => {
             if (token !== typeToken) return;
             if (index >= text.length) {
+                typing = false;
+                skipTyping = () => {};
                 showChoices(choices);
                 return;
             }
             dialogue.textContent += text[index];
             index += 1;
             typeTimer = window.setTimeout(typeNext, 13);
+        };
+        skipTyping = () => {
+            if (!typing || token !== typeToken) return;
+            window.clearTimeout(typeTimer);
+            dialogue.textContent = text;
+            typing = false;
+            skipTyping = () => {};
+            showChoices(choices);
         };
         typeNext();
     }
@@ -191,6 +204,207 @@
         updateStatus();
     }
 
+    function currentSave() {
+        return {
+            version: 1,
+            checkpoint,
+            focus,
+            trust,
+            stubsFound,
+            platformClue,
+            bellFixed,
+            puzzleProgress,
+            questionAsked,
+            destinationShared,
+            lastEnding,
+            endingHistory,
+            savedAt: new Date().toISOString()
+        };
+    }
+
+    function saveProgress(nextCheckpoint = checkpoint) {
+        checkpoint = nextCheckpoint;
+        try {
+            window.localStorage.setItem(saveKey, JSON.stringify(currentSave()));
+            const text = `Saved · ${new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
+            saveStatus.textContent = text;
+            saveFeedback.textContent = 'Progress saved.';
+            return true;
+        } catch (error) {
+            saveStatus.textContent = 'Save unavailable in this browser.';
+            saveFeedback.textContent = 'Could not save. Keep this tab open to protect your progress.';
+            console.error('Unable to save the story to this browser.', error);
+            return false;
+        }
+    }
+
+    function readSave() {
+        let raw;
+        try {
+            raw = window.localStorage.getItem(saveKey);
+        } catch (error) {
+            saveStatus.textContent = 'Browser storage is unavailable; progress will not persist.';
+            console.error('Unable to read the story save from this browser.', error);
+            return null;
+        }
+        if (!raw) return null;
+
+        try {
+            const data = JSON.parse(raw);
+            if (data.version !== 1 || typeof data.checkpoint !== 'string') {
+                throw new Error('Unsupported or invalid save version.');
+            }
+            return data;
+        } catch (error) {
+            saveStatus.textContent = 'The saved story could not be read. Start a new night to continue.';
+            console.error('The saved story is invalid.', error);
+            return null;
+        }
+    }
+
+    function applySave(data) {
+        if (!data) return;
+        focus = Number.isInteger(data.focus) ? Math.max(1, Math.min(4, data.focus)) : 4;
+        trust = Number.isInteger(data.trust) ? Math.max(0, Math.min(3, data.trust)) : 0;
+        stubsFound = Number.isInteger(data.stubsFound) ? Math.max(0, Math.min(3, data.stubsFound)) : 0;
+        platformClue = data.platformClue === true;
+        bellFixed = data.bellFixed === true;
+        puzzleProgress = Number.isInteger(data.puzzleProgress) ? Math.max(0, Math.min(2, data.puzzleProgress)) : 0;
+        questionAsked = data.questionAsked === true;
+        destinationShared = data.destinationShared === true;
+        checkpoint = ['platform', 'signal', 'tunnel', 'ending'].includes(data.checkpoint)
+            ? data.checkpoint
+            : 'platform';
+        lastEnding = ['guide', 'stay', 'note'].includes(data.lastEnding) ? data.lastEnding : '';
+        endingHistory = Array.isArray(data.endingHistory)
+            ? [...new Set(data.endingHistory.filter((ending) => ['guide', 'stay', 'note'].includes(ending)))]
+            : [];
+        updateStatus();
+    }
+
+    function continueGame() {
+        const saved = readSave();
+        if (!saved) return;
+        resetGame();
+        applySave(saved);
+        titleScreen.hidden = true;
+        gameScreen.hidden = false;
+        document.getElementById('journal-button').hidden = false;
+        document.getElementById('save-button').hidden = false;
+        saveFeedback.textContent = 'Story continued.';
+
+        if (checkpoint === 'ending' && lastEnding) {
+            setScene('exit');
+            displayEnding(lastEnding);
+        } else if (checkpoint === 'tunnel' && bellFixed) {
+            setScene('tunnel');
+            enterTunnel();
+            saveFeedback.textContent = 'Tunnel checkpoint restored. Your focus is refreshed.';
+        } else if (checkpoint === 'signal' || bellFixed) {
+            setScene('bell');
+            signalRoomChoices();
+        } else {
+            setScene('platform');
+            platformChoices();
+        }
+    }
+
+    function startNewStory() {
+        let history = endingHistory;
+        const saved = readSave();
+        if (saved && Array.isArray(saved.endingHistory)) {
+            history = [...new Set(saved.endingHistory.filter((ending) => ['guide', 'stay', 'note'].includes(ending)))];
+        }
+        resetGame();
+        endingHistory = history;
+        titleScreen.hidden = true;
+        gameScreen.hidden = false;
+        document.getElementById('journal-button').hidden = false;
+        document.getElementById('save-button').hidden = false;
+        setScene('platform');
+        saveProgress('platform');
+        speak(
+            'At the bottom of the city, the Meridian station keeps a sky of its own: three lamps, one timetable, and a moth who refuses to close.',
+            [{ label: 'Walk toward the lantern', action: meetMorrow }],
+            'STORY'
+        );
+    }
+
+    function updateJournal() {
+        const objective = checkpoint === 'ending'
+            ? 'The night is complete. You can take another route from the title.'
+            : checkpoint === 'tunnel'
+                ? 'Cross the flooded tunnel. Follow the lantern and watch the signal sparks.'
+                : bellFixed
+                    ? 'The signal is fixed. Morrow can lead you through the tunnel.'
+                    : checkpoint === 'signal'
+                        ? 'Restore the platform signal in the service room.'
+                        : 'Find a way through the maintenance gate with Morrow.';
+        document.getElementById('journal-objective').textContent = objective;
+
+        const inventory = ['A sealed jar of dawn — the courier’s delivery.'];
+        if (platformClue) inventory.push('A maintenance note — “Wake the lamp. Give the bell a voice. Unlatch the way.”');
+        if (bellFixed) inventory.push('A brass signal key — warm from the bell mechanism.');
+        for (let index = 0; index < stubsFound; index += 1) {
+            inventory.push([
+                'Ticket stub — Platform 08.',
+                'Ticket stub — One passenger.',
+                'Ticket stub — Return journey.'
+            ][index]);
+        }
+        fillJournalList('journal-inventory', inventory);
+
+        const memories = [];
+        if (questionAsked) memories.push('Morrow keeps the lamp lit in case someone needs the way home.');
+        if (destinationShared) memories.push('The jar holds a small piece of morning.');
+        if (platformClue) memories.push('The signal runs in a three-step sequence.');
+        if (bellFixed) memories.push('The old gate still opens when the signal is restored.');
+        if (memories.length === 0) memories.push('Your night is just beginning.');
+        fillJournalList('journal-memories', memories);
+
+        const endingLabels = {
+            guide: 'Two lights on the road',
+            stay: 'A station for whoever comes',
+            note: 'A message under the bell'
+        };
+        fillJournalList('journal-endings', ['guide', 'stay', 'note'].map((ending) => (
+            endingHistory.includes(ending) ? endingLabels[ending] : '??? — not yet discovered'
+        )));
+    }
+
+    function fillJournalList(id, entries) {
+        const list = document.getElementById(id);
+        list.replaceChildren();
+        entries.forEach((entry) => {
+            const item = document.createElement('li');
+            item.textContent = entry;
+            list.append(item);
+        });
+    }
+
+    function openJournal() {
+        updateJournal();
+        if (!journalDialog.open) journalDialog.showModal();
+    }
+
+    function signalRoomChoices() {
+        speak(
+            bellFixed
+                ? 'The signal lamp holds steady. The old gate is open, and the tunnel is waiting.'
+                : 'Three switches wait beneath the maintenance note. The room smells of dust and warm copper.',
+            bellFixed
+                ? [
+                    { label: 'Enter the flooded tunnel', action: enterTunnel },
+                    { label: 'Return to Platform 08', action: returnToPlatform }
+                ]
+                : [
+                    { label: 'Try the signal switches', action: beginPuzzle },
+                    { label: 'Return to the platform', action: returnToPlatform }
+                ],
+            'STORY'
+        );
+    }
+
     function meetMorrow() {
         speak(
             'Morrow cups the lantern. “You are the first person to come down here on purpose in a long while. Are you lost, or just taking the scenic route?”',
@@ -215,6 +429,7 @@
     function askAboutWaiting() {
         questionAsked = true;
         addTrust();
+        saveProgress();
         speak(
             '“My sister used to ride the last train,” Morrow says. “She moved uphill when the line closed. I keep this light on in case someone else needs the way home.”',
             [
@@ -227,6 +442,7 @@
     function shareDestination() {
         destinationShared = true;
         addTrust();
+        saveProgress();
         speak(
             'You show the sealed jar in your satchel. A small piece of morning glows inside. “A sunrise delivery,” Morrow whispers. “I did not know mornings could fit in a jar.”',
             [
@@ -239,6 +455,7 @@
 
     function readTimetable() {
         platformClue = true;
+        saveProgress();
         speak(
             'A maintenance note is pinned beneath the cancelled schedule: “Wake the lamp. Give the bell a voice. Unlatch the way.” Someone has circled PLATFORM 08 in gold ink.',
             [
@@ -250,6 +467,7 @@
     }
 
     function enterBellRoom() {
+        saveProgress('signal');
         setScene('bell');
         puzzlePanel.hidden = true;
         speak(
@@ -263,6 +481,7 @@
     }
 
     function returnToPlatform() {
+        saveProgress('platform');
         setScene('platform');
         platformChoices();
     }
@@ -270,11 +489,11 @@
     function beginPuzzle() {
         choiceList.hidden = true;
         puzzlePanel.hidden = false;
-        puzzleProgress = 0;
         updatePuzzleLights();
         puzzleHint.textContent = platformClue
             ? 'The note is clear: wake the lamp, give the bell a voice, then unlatch the way.'
             : 'A scratched note says: wake the lamp, give the bell a voice, then unlatch the way.';
+        saveProgress('signal');
         speak('The switches are labeled LAMP, BELL, and GATE. Morrow watches your hand.', []);
         puzzlePanel.hidden = false;
     }
@@ -291,17 +510,20 @@
             puzzleProgress = 0;
             updatePuzzleLights();
             puzzleHint.textContent = 'The switches click back to rest. Try the sequence again: lamp, bell, gate.';
+            saveProgress('signal');
             playChime(196);
             return;
         }
 
         puzzleProgress += 1;
         updatePuzzleLights();
+        saveProgress('signal');
         playChime([293.66, 369.99, 440][puzzleProgress - 1]);
         if (puzzleProgress === switchSequence.length) {
             bellFixed = true;
             addTrust();
             stubsFound = Math.min(3, stubsFound + 1);
+            saveProgress('tunnel');
             updateStatus();
             puzzlePanel.hidden = true;
             speak(
@@ -320,6 +542,9 @@
         hazardTimer = 0.35;
         stubTimer = 1.4;
         invulnerable = 0;
+        focus = Math.max(focus, 2);
+        updateStatus();
+        saveProgress('tunnel');
         courier.x = canvasWidth / 2;
         courier.y = runBounds.bottom - 22;
         hazards.length = 0;
@@ -400,6 +625,7 @@
                 focus = Math.max(0, focus - 1);
                 invulnerable = 1;
                 updateStatus();
+                saveProgress('tunnel');
                 document.getElementById('runner-message').textContent = focus > 0
                     ? 'A static spark catches your sleeve. Keep your footing.'
                     : 'The lantern light flickers out of reach.';
@@ -420,6 +646,7 @@
                 ticketStubs.splice(index, 1);
                 stubsFound = Math.min(3, stubsFound + 1);
                 updateStatus();
+                saveProgress('tunnel');
                 document.getElementById('runner-message').textContent = [
                     'Stub found: PLATFORM 08.',
                     'Stub found: ONE PASSENGER.',
@@ -451,6 +678,7 @@
         const found = stubsFound >= 3
             ? 'The three recovered tickets list one passenger, one lantern, and one return journey. Morrow reads the last line without speaking.'
             : 'The tunnel gate opens onto the hillside road. Morrow’s lantern turns the black water gold.';
+        saveProgress('tunnel');
         speak(found, [
             { label: 'Ask Morrow to come uphill with you', action: () => endStory('guide') },
             ...(trust >= 2 ? [{ label: 'Stay and relight the platform together', action: () => endStory('stay') }] : []),
@@ -460,6 +688,14 @@
     }
 
     function endStory(ending) {
+        mode = 'ending';
+        lastEnding = ending;
+        if (!endingHistory.includes(ending)) endingHistory.push(ending);
+        saveProgress('ending');
+        displayEnding(ending);
+    }
+
+    function displayEnding(ending) {
         mode = 'ending';
         choiceList.hidden = true;
         endingCard.hidden = false;
@@ -503,6 +739,7 @@
     function pauseRunner() {
         if (mode === 'runner') {
             mode = 'paused';
+            keys.clear();
             window.cancelAnimationFrame(frameId);
             pauseCurtain.hidden = false;
             document.getElementById('pause-button').textContent = 'Resume';
@@ -769,11 +1006,28 @@
     }
 
     document.getElementById('start-game').addEventListener('click', startGame);
+    document.getElementById('continue-game').addEventListener('click', continueGame);
+    document.getElementById('new-game').addEventListener('click', () => {
+        document.getElementById('new-game-dialog').showModal();
+    });
+    document.getElementById('cancel-new-game').addEventListener('click', () => {
+        document.getElementById('new-game-dialog').close();
+    });
+    document.getElementById('confirm-new-game').addEventListener('click', () => {
+        document.getElementById('new-game-dialog').close();
+        startNewStory();
+    });
     document.getElementById('resume-game').addEventListener('click', pauseRunner);
     document.getElementById('pause-button').addEventListener('click', pauseRunner);
-    document.getElementById('retry-game').addEventListener('click', startGame);
+    document.getElementById('retry-game').addEventListener('click', () => {
+        focus = 4;
+        enterTunnel();
+    });
     document.getElementById('play-again').addEventListener('click', startGame);
     soundToggle.addEventListener('click', toggleSound);
+    document.getElementById('journal-button').addEventListener('click', openJournal);
+    document.getElementById('close-journal').addEventListener('click', () => journalDialog.close());
+    document.getElementById('save-button').addEventListener('click', () => saveProgress());
 
     document.querySelectorAll('[data-switch]').forEach((button) => {
         button.addEventListener('click', () => pressSwitch(button.dataset.switch));
@@ -799,6 +1053,11 @@
 
     document.addEventListener('keydown', (event) => {
         const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
+        if (mode === 'story' && typing && (event.key === 'Enter' || event.key === ' ')) {
+            event.preventDefault();
+            skipTyping();
+            return;
+        }
         if (mode === 'runner' && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(event.key)) {
             event.preventDefault();
         }
@@ -806,6 +1065,7 @@
             keys.add(key);
         }
         if (mode === 'runner' && key === 'p') pauseRunner();
+        if (mode === 'story' && key === 'j' && !journalDialog.open) openJournal();
         if (mode === 'story' && /^[1-4]$/.test(key)) {
             const choice = choiceList.querySelectorAll('button')[Number(key) - 1];
             if (choice) choice.click();
@@ -820,4 +1080,18 @@
     });
 
     updateStatus();
+    const savedGame = readSave();
+    if (savedGame) {
+        applySave(savedGame);
+        document.getElementById('start-game').hidden = true;
+        document.getElementById('continue-game').hidden = false;
+        document.getElementById('new-game').hidden = false;
+        saveStatus.textContent = savedGame.savedAt
+            ? `Last played ${new Date(savedGame.savedAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}`
+            : 'A saved night is waiting.';
+    } else {
+        document.getElementById('continue-game').hidden = true;
+        document.getElementById('new-game').hidden = true;
+        document.getElementById('start-game').hidden = false;
+    }
 })();

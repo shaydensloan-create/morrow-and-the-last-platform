@@ -75,6 +75,28 @@ button {
     gap: 18px;
 }
 
+.tool-button {
+    min-height: 30px;
+    padding: 6px 9px;
+    border: 1px solid #637282;
+    background: transparent;
+    color: var(--cream);
+    font-size: 9px;
+    cursor: pointer;
+}
+
+.tool-button:hover,
+.tool-button:focus-visible {
+    border-color: var(--gold);
+    color: var(--gold);
+    outline: none;
+}
+
+.tool-button kbd {
+    color: var(--gold);
+    font: inherit;
+}
+
 .chapter-label {
     color: var(--muted);
     font-size: 9px;
@@ -222,6 +244,24 @@ main {
     line-height: 1.9;
 }
 
+.title-actions {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 9px;
+}
+
+.title-start {
+    min-width: 190px;
+}
+
+.save-status {
+    min-height: 18px;
+    margin: 9px 0 0;
+    color: var(--teal);
+    font-size: 9px;
+}
+
 .button {
     min-height: 42px;
     padding: 10px 13px;
@@ -288,6 +328,15 @@ main {
     padding: 12px 16px;
     border-bottom: 1px solid #465563;
     background: #15212d;
+}
+
+.save-feedback {
+    margin: 0;
+    min-height: 16px;
+    padding: 3px 12px;
+    color: var(--teal);
+    font-size: 8px;
+    text-align: right;
 }
 
 .scene-name {
@@ -584,6 +633,100 @@ main {
     color: var(--coral);
 }
 
+.journal-dialog,
+.confirm-dialog {
+    width: min(100% - 28px, 560px);
+    max-height: min(85vh, 700px);
+    padding: 20px;
+    border: 1px solid #7e8d98;
+    background: #14202c;
+    color: var(--cream);
+    box-shadow: 8px 8px 0 rgba(0, 0, 0, .35);
+}
+
+.journal-dialog::backdrop,
+.confirm-dialog::backdrop {
+    background: rgba(3, 8, 13, .78);
+    backdrop-filter: blur(2px);
+}
+
+.journal-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #4a5b68;
+}
+
+.journal-top h2,
+.confirm-dialog h2 {
+    margin: 0;
+    color: var(--gold);
+    font-size: 19px;
+}
+
+.journal-content {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    margin-top: 15px;
+}
+
+.journal-content section {
+    padding: 11px;
+    border: 1px solid #394b59;
+    background: #101923;
+}
+
+.journal-content h3 {
+    margin: 0 0 8px;
+    color: var(--teal);
+    font-size: 10px;
+}
+
+.journal-content p,
+.journal-content li,
+.confirm-dialog > p:not(.eyebrow) {
+    color: #c1cbd2;
+    font-size: 9px;
+    line-height: 1.8;
+}
+
+.journal-content p,
+.journal-content ul {
+    margin: 0;
+}
+
+.journal-content ul {
+    padding-left: 17px;
+}
+
+.journal-content li + li {
+    margin-top: 4px;
+}
+
+.journal-footnote {
+    margin: 14px 0 0;
+    color: #81909b;
+    font-size: 8px;
+}
+
+.confirm-dialog {
+    max-width: 430px;
+}
+
+.confirm-dialog > p:not(.eyebrow) {
+    margin: 12px 0 18px;
+}
+
+.confirm-actions {
+    display: flex;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
 .game-footer {
     display: flex;
     justify-content: space-between;
@@ -625,6 +768,10 @@ main {
         display: none;
     }
 
+    .topbar-tools {
+        gap: 7px;
+    }
+
     main {
         width: min(100% - 18px, 900px);
         margin-top: 19px;
@@ -642,6 +789,10 @@ main {
 
     .choice-list,
     .puzzle-buttons {
+        grid-template-columns: 1fr;
+    }
+
+    .journal-content {
         grid-template-columns: 1fr;
     }
 

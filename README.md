@@ -1,28 +1,63 @@
 # Morrow and the Last Light
 
-A short, original browser adventure about Morrow, a lantern moth keeping watch
-over an underground station after its last train has stopped running.
+A complete, short browser adventure about a night courier and Morrow, a lantern
+moth who keeps watch over the last underground station.
 
-## Play locally
+The courier arrives at Platform 08 with a jar of dawn to deliver uphill. The
+Meridian line has been closed for years, and the old maintenance gate is the
+only way through. Morrow knows the signal sequence, but getting the lights on
+means deciding what is worth remembering.
 
-No build step or external assets are needed. From this folder, run:
+## Play
+
+There is no build step, package installation, or third-party asset request.
+From this directory, run:
 
 ```sh
 python3 -m http.server 8000
 ```
 
-Open [http://localhost:8000](http://localhost:8000).
+Then open [http://localhost:8000](http://localhost:8000).
 
-## How to play
+## Controls
 
-- Choose dialogue and explore Platform 08.
-- Read the maintenance note, then activate the signal switches in order:
-  **lamp, bell, gate**.
-- Move with **arrow keys** or **WASD** through the flooded tunnel. Collect old
-  ticket stubs and avoid static sparks. Press **P** to pause.
-- Your conversations and discoveries affect which ending choices are available.
-- The **Sound** button creates a quiet ambient drone and chimes with Web Audio;
-  it starts off and can be toggled at any time.
+- **Mouse / touch:** choose story responses and use the signal switches.
+- **1–4:** choose a dialogue response.
+- **Enter / Space:** finish the current typewriter line.
+- **Arrow keys / WASD:** move through the flooded tunnel.
+- **Touch pad:** move on phones and tablets.
+- **P:** pause or resume during the tunnel crossing.
+- **J:** open the journal.
+- **Save:** save the current safe checkpoint.
+- **Sound:** toggle the optional, locally generated ambient drone and chimes.
 
-All characters, story, and pixel art in this project are original. The game has
-no runtime dependencies or third-party assets.
+## Story and progress
+
+- Explore Platform 08, talk with Morrow, and find the maintenance note.
+- In the service room, restore the signal in order: **lamp, bell, gate**.
+- Cross the flooded tunnel, avoiding signal sparks and collecting old ticket
+  stubs.
+- Your conversations and discoveries affect the available endings. The journal
+  tracks clues, keepsakes, and endings you've found.
+- Progress saves automatically at story milestones and when collecting ticket
+  stubs. **Continue** resumes a safe story checkpoint. If you lose focus in the
+  tunnel, **Try again** retries that section with restored focus.
+- **Start a new story** confirms before replacing the current save. Discovered
+  endings remain recorded in the journal.
+
+The game stores saves only in this browser using `localStorage`; no player data
+is sent anywhere. Clearing browser storage removes the save.
+
+## Tests
+
+With Node.js installed, run the dependency-free gameplay tests:
+
+```sh
+node --test
+```
+
+The tests cover save/resume, the signal puzzle, tunnel survival and failure,
+ending unlocks, and replay.
+
+All characters, story, and pixel art are original. The game has no external
+runtime dependencies or third-party assets.

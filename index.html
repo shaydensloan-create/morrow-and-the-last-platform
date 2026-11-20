@@ -17,6 +17,8 @@
         </a>
         <div class="topbar-tools">
             <span class="chapter-label" id="chapter-label">THE MERIDIAN LINE</span>
+            <button class="tool-button in-game-tool" id="journal-button" type="button" hidden>Journal <kbd>J</kbd></button>
+            <button class="tool-button in-game-tool" id="save-button" type="button" hidden>Save</button>
             <button class="sound-toggle" id="sound-toggle" type="button" aria-pressed="false">Sound: off</button>
         </div>
     </header>
@@ -33,7 +35,12 @@
             <p class="eyebrow">A STORY ABOUT THE LIGHT WE LEAVE ON</p>
             <h1 id="title">Morrow<br><span>and the Last Light</span></h1>
             <p class="title-copy">The last train stopped running years ago. Morrow still keeps the station lamp lit. Tonight, somebody finally came back.</p>
-            <button class="button button-primary title-start" id="start-game" type="button">Begin the journey <span aria-hidden="true">→</span></button>
+            <div class="title-actions">
+                <button class="button button-primary title-start" id="start-game" type="button">Begin the journey <span aria-hidden="true">→</span></button>
+                <button class="button title-start" id="continue-game" type="button" hidden>Continue your story <span aria-hidden="true">→</span></button>
+                <button class="button title-start" id="new-game" type="button" hidden>Start a new story</button>
+            </div>
+            <p class="save-status" id="save-status" aria-live="polite"></p>
             <p class="title-controls">A short, original story game · No downloads or extra assets required</p>
         </section>
 
@@ -49,6 +56,7 @@
                     <span><small>STUBS</small><strong id="stubs">0 / 3</strong></span>
                 </div>
             </div>
+            <p class="save-feedback" id="save-feedback" aria-live="polite"></p>
 
             <div class="stage-frame">
                 <canvas id="scene" width="768" height="432" aria-label="A pixel-art view of the Meridian underground station">
@@ -104,16 +112,53 @@
                 <div class="gameover-card" id="gameover-card" hidden>
                     <p class="eyebrow">SIGNAL LOST</p>
                     <h2>The dark is only a pause.</h2>
-                    <p>Morrow keeps the lamp on while you catch your breath.</p>
+                    <p>Morrow keeps the lamp on while you catch your breath. Your progress is safe at the tunnel entrance.</p>
                     <button class="button button-primary" id="retry-game" type="button">Try again</button>
                 </div>
             </div>
             <footer class="game-footer">
                 <span>EXPLORATION <i>·</i> SMALL CHOICES <i>·</i> NO WRONG WAY HOME</span>
-                <span>Built from original art and a little generated ambience.</span>
+                <span>Arrows / WASD move <i>·</i> 1–4 choose <i>·</i> J journal <i>·</i> P pause</span>
             </footer>
         </section>
     </main>
     <div class="screen-reader-only" id="live-region" aria-live="polite"></div>
+    <dialog class="journal-dialog" id="journal-dialog" aria-labelledby="journal-title">
+        <div class="journal-top">
+            <div>
+                <p class="eyebrow">THE COURIER'S POCKET</p>
+                <h2 id="journal-title">Night journal</h2>
+            </div>
+            <button class="tool-button" id="close-journal" type="button" aria-label="Close journal">Close <kbd>Esc</kbd></button>
+        </div>
+        <div class="journal-content">
+            <section>
+                <h3>Current thought</h3>
+                <p id="journal-objective">Find Morrow on Platform 08.</p>
+            </section>
+            <section>
+                <h3>In your satchel</h3>
+                <ul id="journal-inventory"></ul>
+            </section>
+            <section>
+                <h3>Things you learned</h3>
+                <ul id="journal-memories"></ul>
+            </section>
+            <section>
+                <h3>Ways the night can end</h3>
+                <ul id="journal-endings"></ul>
+            </section>
+        </div>
+        <p class="journal-footnote">Your story saves on this device. Nothing is sent anywhere.</p>
+    </dialog>
+    <dialog class="confirm-dialog" id="new-game-dialog" aria-labelledby="new-game-title">
+        <p class="eyebrow">A NEW NIGHT</p>
+        <h2 id="new-game-title">Begin again?</h2>
+        <p>This will replace your saved night on this device. Endings already discovered stay in your journal.</p>
+        <div class="confirm-actions">
+            <button class="button" id="cancel-new-game" type="button">Keep this story</button>
+            <button class="button button-primary" id="confirm-new-game" type="button">Begin a new night</button>
+        </div>
+    </dialog>
 </body>
 </html>
