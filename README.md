@@ -40,10 +40,11 @@ Then open [http://localhost:8000](http://localhost:8000).
 
 - Explore Platform 08 and meet Morrow, Pip, and Vale. Pip's keepsake and the
   characters' stories are recorded in your journal.
+- Returning Pip’s ticket to the story unlocks a fourth, optional ending.
 - Walk up to a character or object and press **E** to interact.
 - In the service room, restore the signal in order: **lamp, bell, gate**.
 - Cross the flooded tunnel, avoiding signal sparks and collecting old ticket
-  stubs.
+  stubs, then reach a newly illustrated hillside at first light.
 - Your conversations and discoveries affect the available endings. The journal
   tracks clues, keepsakes, and endings you've found.
 - Progress saves automatically at story milestones and when collecting ticket
@@ -63,8 +64,8 @@ With Node.js installed, run the dependency-free gameplay tests:
 node --test
 ```
 
-The tests cover save/resume, the signal puzzle, tunnel survival and failure,
-ending unlocks, and replay.
+The tests cover save/resume, character routes, the signal puzzle, tunnel
+survival and failure, ending unlocks, and replay.
 
 All characters, story, and pixel art are original. The game has no external
 runtime dependencies or third-party assets.

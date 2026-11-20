@@ -192,7 +192,7 @@
             platform: ['PLATFORM 08', 'THE MERIDIAN LINE'],
             bell: ['SIGNAL ROOM', 'THE SERVICE LEVEL'],
             tunnel: ['FLOODED TUNNEL', 'BELOW THE CITY'],
-            exit: ['THE OLD GATE', 'A WAY THROUGH']
+            exit: ['THE HILLSIDE ROAD', 'FIRST LIGHT']
         };
         sceneName.textContent = labels[scene][0];
         chapterLabel.textContent = labels[scene][1];
@@ -349,9 +349,9 @@
         checkpoint = ['platform', 'signal', 'tunnel', 'ending'].includes(data.checkpoint)
             ? data.checkpoint
             : 'platform';
-        lastEnding = ['guide', 'stay', 'note'].includes(data.lastEnding) ? data.lastEnding : '';
+        lastEnding = ['guide', 'stay', 'note', 'return'].includes(data.lastEnding) ? data.lastEnding : '';
         endingHistory = Array.isArray(data.endingHistory)
-            ? [...new Set(data.endingHistory.filter((ending) => ['guide', 'stay', 'note'].includes(ending)))]
+            ? [...new Set(data.endingHistory.filter((ending) => ['guide', 'stay', 'note', 'return'].includes(ending)))]
             : [];
         updateStatus();
     }
@@ -387,7 +387,7 @@
         let history = endingHistory;
         const saved = readSave();
         if (saved && Array.isArray(saved.endingHistory)) {
-            history = [...new Set(saved.endingHistory.filter((ending) => ['guide', 'stay', 'note'].includes(ending)))];
+            history = [...new Set(saved.endingHistory.filter((ending) => ['guide', 'stay', 'note', 'return'].includes(ending)))];
         }
         resetGame();
         endingHistory = history;
@@ -445,9 +445,10 @@
         const endingLabels = {
             guide: 'Two lights on the road',
             stay: 'A station for whoever comes',
-            note: 'A message under the bell'
+            note: 'A message under the bell',
+            return: 'A ticket home'
         };
-        fillJournalList('journal-endings', ['guide', 'stay', 'note'].map((ending) => (
+        fillJournalList('journal-endings', ['guide', 'stay', 'note', 'return'].map((ending) => (
             endingHistory.includes(ending) ? endingLabels[ending] : '??? — not yet discovered'
         )));
     }
@@ -939,7 +940,8 @@
         speak(found, [
             { label: 'Ask Morrow to come uphill with you', action: () => endStory('guide') },
             ...(trust >= 2 ? [{ label: 'Stay and relight the platform together', action: () => endStory('stay') }] : []),
-            { label: 'Leave a note for the next traveler', action: () => endStory('note') }
+            { label: 'Leave a note for the next traveler', action: () => endStory('note') },
+            ...(pipTicket ? [{ label: 'Leave Pip’s return ticket beneath the timetable', action: () => endStory('return') }] : [])
         ], 'STORY');
         drawScene();
     }
@@ -970,6 +972,10 @@
             note: {
                 title: 'A message under the bell',
                 copy: 'You leave a note beneath the signal bell: “Someone came through. The light helped.” Morrow reads it twice and pins it beside the old timetable.'
+            },
+            return: {
+                title: 'A ticket home',
+                copy: 'You leave Pip’s return ticket beneath the old timetable, beside a note: “For the one who comes back.” Pip will keep it safe. The station has a promise to keep, not just a light.'
             }
         };
         document.getElementById('ending-title').textContent = endings[ending].title;
@@ -979,7 +985,9 @@
                 ? 'Morrow: “I know a dry path. It is not the shortest, but it has very good stars.”'
                 : ending === 'stay'
                     ? 'Morrow: “I thought keeping watch was a one-moth job.”'
-                    : 'Morrow: “I will keep it safe. Someone always comes back for a note.”',
+                    : ending === 'return'
+                        ? 'Morrow: “Pip will know who it belongs to when they are ready to come home.”'
+                        : 'Morrow: “I will keep it safe. Someone always comes back for a note.”',
             [],
             'MORROW'
         );
@@ -1013,6 +1021,7 @@
         ctx.clearRect(0, 0, canvasWidth, canvasHeight);
         if (scene === 'bell') drawSignalRoom();
         else if (scene === 'tunnel') drawTunnel();
+        else if (scene === 'exit') drawHillside();
         else drawPlatform();
         drawMorrow();
         if (scene === 'platform') drawPip();
@@ -1137,6 +1146,102 @@
         ctx.fillRect(374, 28, 20, 7);
         ctx.fillStyle = '#f2d594';
         ctx.fillRect(379, 34, 10, 21);
+    }
+
+    function drawHillside() {
+        ctx.fillStyle = '#17283a';
+        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+        ctx.fillStyle = '#283b4b';
+        ctx.fillRect(0, 154, canvasWidth, 74);
+        ctx.fillStyle = '#e9bd7a';
+        ctx.fillRect(598, 121, 34, 34);
+        ctx.fillStyle = '#f2d594';
+        ctx.fillRect(606, 129, 18, 18);
+
+        const stars = [
+            [52, 48, 3], [112, 95, 2], [191, 54, 2], [278, 82, 3],
+            [352, 43, 2], [479, 71, 2], [691, 54, 3]
+        ];
+        for (const [x, y, size] of stars) {
+            ctx.fillStyle = '#f2d594';
+            ctx.fillRect(x, y, size, size);
+        }
+
+        ctx.fillStyle = '#344b59';
+        ctx.beginPath();
+        ctx.moveTo(0, 226);
+        ctx.lineTo(91, 157);
+        ctx.lineTo(157, 211);
+        ctx.lineTo(258, 143);
+        ctx.lineTo(362, 222);
+        ctx.lineTo(470, 160);
+        ctx.lineTo(582, 221);
+        ctx.lineTo(676, 166);
+        ctx.lineTo(768, 216);
+        ctx.lineTo(768, 302);
+        ctx.lineTo(0, 302);
+        ctx.fill();
+
+        ctx.fillStyle = '#263d46';
+        ctx.beginPath();
+        ctx.moveTo(0, 254);
+        ctx.lineTo(115, 205);
+        ctx.lineTo(215, 260);
+        ctx.lineTo(342, 197);
+        ctx.lineTo(466, 261);
+        ctx.lineTo(590, 204);
+        ctx.lineTo(768, 262);
+        ctx.lineTo(768, 432);
+        ctx.lineTo(0, 432);
+        ctx.fill();
+
+        ctx.fillStyle = '#182a34';
+        ctx.fillRect(36, 190, 110, 82);
+        ctx.fillStyle = '#53626a';
+        ctx.fillRect(28, 183, 126, 12);
+        ctx.fillStyle = '#b78c5d';
+        ctx.fillRect(46, 205, 91, 6);
+        ctx.fillRect(46, 211, 6, 61);
+        ctx.fillRect(132, 211, 6, 61);
+        ctx.fillStyle = '#f2d594';
+        ctx.fillRect(60, 222, 15, 20);
+        ctx.fillRect(103, 222, 15, 20);
+        ctx.fillStyle = '#101b26';
+        ctx.fillRect(83, 229, 20, 43);
+        ctx.fillStyle = '#e6d3a6';
+        ctx.font = '8px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('MERIDIAN', 91, 178);
+        ctx.textAlign = 'start';
+
+        ctx.fillStyle = '#41544a';
+        ctx.fillRect(0, 337, canvasWidth, 95);
+        ctx.fillStyle = '#596357';
+        ctx.beginPath();
+        ctx.moveTo(118, 258);
+        ctx.lineTo(224, 253);
+        ctx.lineTo(341, 285);
+        ctx.lineTo(464, 432);
+        ctx.lineTo(268, 432);
+        ctx.lineTo(250, 319);
+        ctx.fill();
+        ctx.fillStyle = '#a18e6b';
+        ctx.beginPath();
+        ctx.moveTo(127, 263);
+        ctx.lineTo(221, 261);
+        ctx.lineTo(332, 292);
+        ctx.lineTo(428, 432);
+        ctx.lineTo(316, 432);
+        ctx.lineTo(270, 317);
+        ctx.fill();
+
+        for (let x = 14; x < canvasWidth; x += 38) {
+            if (x < 250 || x > 475) {
+                ctx.fillStyle = x % 76 === 14 ? '#e1c27d' : '#9ad9c8';
+                ctx.fillRect(x, 355 + (x % 3) * 9, 3, 5);
+                ctx.fillRect(x + 11, 389 - (x % 2) * 11, 2, 4);
+            }
+        }
     }
 
     function drawMorrow() {

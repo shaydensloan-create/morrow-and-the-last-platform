@@ -321,6 +321,37 @@ test('Vale offers a second character route through the signal room', () => {
     assert.match(game.elements.get('party-members').textContent, /VALE/);
 });
 
+test('Pip’s return ticket unlocks an ending that survives continue', () => {
+    const storage = new Map();
+    let game = createGame(storage);
+    game.click(game.elements.get('start-game'));
+    interactPip(game);
+    game.choose(0);
+    game.choose(0);
+
+    game.key('keydown', 'ArrowRight');
+    game.advance(1.5);
+    game.key('keyup', 'ArrowRight');
+    game.key('keydown', 'e');
+    game.key('keyup', 'e');
+    assert.equal(game.elements.get('speaker').textContent, 'MORROW');
+    game.choose(0);
+    game.choose(1);
+    interactBoard(game);
+    solveSignal(game);
+    game.key('keydown', 'ArrowRight');
+    game.advance(14.5);
+    game.key('keyup', 'ArrowRight');
+    game.choose(3);
+    assert.equal(game.elements.get('ending-title').textContent, 'A ticket home');
+
+    game = createGame(storage);
+    game.click(game.elements.get('continue-game'));
+    assert.equal(game.elements.get('ending-title').textContent, 'A ticket home');
+    game.click(game.elements.get('journal-button'));
+    assert.match(game.elements.get('journal-endings').children.map((item) => item.textContent).join(' '), /A ticket home/);
+});
+
 test('switch sequence gates the tunnel and a discovered ending survives replay', () => {
     const game = createGame();
     progressToSignal(game, true);
@@ -342,7 +373,7 @@ test('switch sequence gates the tunnel and a discovered ending survives replay',
     restored.key('keydown', 'ArrowRight');
     restored.advance(14.5);
     restored.key('keyup', 'ArrowRight');
-    assert.equal(restored.elements.get('scene-name').textContent, 'THE OLD GATE');
+    assert.equal(restored.elements.get('scene-name').textContent, 'THE HILLSIDE ROAD');
     restored.choose(1);
     assert.equal(restored.elements.get('ending-title').textContent, 'A station for whoever comes');
 
